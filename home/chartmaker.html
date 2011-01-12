@@ -1,0 +1,245 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+.number {
+	text-align: right;
+}
+form {
+	width: 768px !important;
+}
+fieldset {
+	line-height: 2;
+}
+fieldset .headline {
+	display: block;
+	width: 15%;
+	float: left;
+	margin-right: 1em;
+	text-align: right;
+}
+fieldset br {
+    clear: left;
+}
+textarea {
+	width: 400px;
+	height: 200px;
+	margin-left: 16px;
+	margin-bottom: 20px;
+	font-size: 0.8em !important;
+	word-wrap: break-word;
+	word-break: break-all;
+}
+</style>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
+<script type="text/javascript">
+jQuery(function($) {
+	var labels = [
+		'Part I',
+		'Part II',
+		'Part III',
+		'Part IV',
+		'Part V',
+		'Part VI',
+		'Part VII'
+	];
+	var maxes = [10, 30, 30, 30, 40, 12, 48];
+
+	$('form input:text').change(function() {
+		updateAll();
+	});
+	$('.score_slider').each(function(i) {
+		var textInput = $(this).prevAll('input:text:first');
+		var scoreSlider = $(this);
+		$(this).slider({
+			range: 'min',
+			max: maxes[i],
+			slide: function(event, ui) {
+				textInput.val(ui.value);
+			},
+			change: updateAll
+		}).css({
+			display: 'inline-block',
+			width: maxes[i] * 8,
+			marginLeft: '1em'
+		});
+		textInput.change(function() {
+			var v = Number(textInput.val());
+			if (v < scoreSlider.slider('option', 'min')) {
+				v = scoreSlider.slider('option', 'min');
+			}
+			if (v > scoreSlider.slider('option', 'max')) {
+				v = scoreSlider.slider('option', 'max');
+			}
+			textInput.val(v);
+			scoreSlider.slider('value', v);
+		});
+		$(this).before('<span> / ' + maxes[i] + '</span>');
+	});
+	$('.color_slider').each(function(i) {
+		var textInput = $(this).nextAll('input:text:first');
+		var colorSlider = $(this);
+		$(this).slider({
+			range: 'min',
+			max: 255,
+			slide: function(event, ui) {
+				textInput.val(ui.value);
+			},
+			change: updateAll
+		}).css({display: 'inline-block', width: '256px', marginRight: '1em'});
+		textInput.change(function() {
+			var v = Number(textInput.val());
+			if (v < colorSlider.slider('option', 'min')) {
+				v = colorSlider.slider('option', 'min');
+			}
+			if (v > colorSlider.slider('option', 'max')) {
+				v = colorSlider.slider('option', 'max');
+			}
+			textInput.val(v);
+			colorSlider.slider('value', v);
+		});
+		$(this).find('.ui-slider-range').css('background', '#' + rgbToHex((i == 0) ? 255 : 224, (i == 1) ? 255 : 224, (i == 2) ? 255 : 224));
+	});
+	$('fieldset').each(function() {
+		$('<h3><a href="#">' + $(this).find('legend').text() + '</a></h3>').insertBefore($(this));
+	});
+	$('legend').hide();
+	$('form').accordion({header: 'h3'});
+	$('textarea').focus(function() {
+		$(this).select();
+	});
+	$('form *').blur(function() {
+		saveSettings();
+	});
+
+	$('form').each(function() {
+		$(this)[0].reset();
+	});
+	loadSettings();
+	$('form input:text').each(function() {
+		$(this).change();
+	});
+
+	function rgbToHex() {
+		var str = '';
+		for (var i = 0; i < arguments.length; i++) {
+			var hex = Number(arguments[i]).toString(16);
+			if (hex.length === 1) {
+				str += '0';
+			}
+			str += hex;
+		}
+		return str;
+	}
+
+	function updateAll() {
+		var parts = [
+			Number($('#part1').val()),
+			Number($('#part2').val()),
+			Number($('#part3').val()),
+			Number($('#part4').val()),
+			Number($('#part5').val()),
+			Number($('#part6').val()),
+			Number($('#part7').val())
+		];
+		var percentages = [];
+		for (var i = 0; i < parts.length; i++) {
+			percentages.push(parts[i] / maxes[i]);
+		}
+
+		var color = rgbToHex($('#red').val(), $('#green').val(), $('#blue').val());
+
+		var barOptions = {
+			cht: 'bho',
+			chs: '480x240',
+			chxt: 'y,x',
+			chd: 't:' + parts.join() + '|' + maxes.join(),
+			chds: '0,50',
+			chg: '10,0,2,2',
+			chco: color + '80,' + color + '40',
+			chm: 'N,808080,-1,,11|N,000000,0,,11,,c',
+			chxl: '0:|' + labels.slice(0).reverse().join('|') + '|1:|0|10|20|30|40|',
+			chtt: encodeURIComponent($('#title').val())
+		};
+		var raderOptions = {
+			cht: 'r',
+			chs: '400x400',
+			chxt: 'x,y',
+			chd: 't:' + percentages.join() + ',' + percentages[0],
+			chds: '0,1',
+			chco: color,
+			chm: 'B,' + color + '40,0,0,5|N*p0*,000000,0,0:6:1,11',
+			chxl: '0:|' + labels.join('|') + '|1:|0|20|40|60|80|100',
+			chtt: encodeURIComponent($('#title').val())
+		};
+
+		$('#bar_chart').attr({
+			src: 'http://chart.apis.google.com/chart?' + decodeURIComponent($.param(barOptions)),
+			alt: $('#title').val()
+		});
+		$('#rader_chart').attr({
+			src: 'http://chart.apis.google.com/chart?' + decodeURIComponent($.param(raderOptions)),
+			alt: $('#title').val()
+		});
+		$('#bar_source').text('<img src="http://chart.apis.google.com/chart?' + decodeURI($.param(barOptions)).replace(/\*/g, '%2A') + '" alt="' + $('#bar_chart').attr('alt') + '">');
+		$('#rader_source').text('<img src="http://chart.apis.google.com/chart?' + decodeURI($.param(raderOptions)).replace(/\*/g, '%2A') + '" alt="' + $('#rader_chart').attr('alt') + '">');
+	}
+
+	function saveSettings() {
+		var str = 'settings=' + $.param($('form :text')).replace(/\+/g, ' ') + '; expires=' + new Date(2020, 0, 1) + ';';
+		document.cookie = str;
+	}
+
+	function loadSettings() {
+		var params = document.cookie.replace(/^settings=/, '').split('&');
+		for (var i = 0; i < params.length; i++) {
+			var index = params[i].indexOf('=');
+			var key = decodeURIComponent(params[i].slice(0, index));
+			var value = decodeURIComponent(params[i].slice(index + 1));
+			$('input[name="' + key + '"]').each(function() {
+				$(this).val([value]).change();
+			});
+		}
+	}
+});
+</script>
+<title>TOEIC Chart Maker</title>
+</head>
+
+<body class="ui-widget">
+<h1 class="ui-widget-header">TOEIC Chart Maker</h1>
+<h2>Settings</h2>
+
+<form id="form_settings">
+	<fieldset>
+		<legend>Parameters</legend>
+		<label class="headline">Chart Title:</label><input type="text" id="title" name="title" size="60" value="TOEIC Prep Test"><br>
+		<br>
+		<label class="headline" for="part1">Part I:</label><input type="text" id="part1" name="part1" class="number" size="4" value="0"><div id="part1_slider" class="score_slider"></div><br>
+		<label class="headline" for="part2">Part II:</label><input type="text" id="part2" name="part2" class="number" size="4" value="0"><div id="part2_slider" class="score_slider"></div><br>
+		<label class="headline" for="part3">Part III:</label><input type="text" id="part3" name="part3" class="number" size="4" value="0"><div id="part3_slider" class="score_slider"></div><br>
+		<label class="headline" for="part4">Part IV:</label><input type="text" id="part4" name="part4" class="number" size="4" value="0"><div id="part4_slider" class="score_slider"></div><br>
+		<label class="headline" for="part5">Part V:</label><input type="text" id="part5" name="part5" class="number" size="4" value="0"><div id="part5_slider" class="score_slider"></div><br>
+		<label class="headline" for="part6">Part VI:</label><input type="text" id="part6" name="part6" class="number" size="4" value="0"><div id="part6_slider" class="score_slider"></div><br>
+		<label class="headline" for="part7">Part VII:</label><input type="text" id="part7" name="part7" class="number" size="4" value="0"><div id="part7_slider" class="score_slider"></div><br>
+	</fieldset>
+	<fieldset>
+		<legend>Colors</legend>
+		<label class="headline" for="red">Red:</label><div id="red_slider" class="color_slider"></div><input type="text" id="red" name="red" class="number" size="4" value="0"><br>
+		<label class="headline" for="green">Green:</label><div id="green_slider" class="color_slider"></div><input type="text" id="green" name="green" class="number" size="4" value="255"><br>
+		<label class="headline" for="blue">Blue:</label><div id="blue_slider" class="color_slider"></div><input type="text" id="blue" name="blue" class="number" size="4" value="0"><br>
+	</fieldset>
+</form>
+
+<h2>Bar Chart</h2>
+<img id="bar_chart"><textarea id="bar_source" rows="4" cols="40"></textarea>
+
+<h2>Rader Chart</h2>
+<img id="rader_chart"><textarea id="rader_source" rows="4" cols="40"></textarea>
+</body>
+</html>

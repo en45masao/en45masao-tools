@@ -1,0 +1,15 @@
+application: en45masao
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /txt2txt/.*
+  script: txt2txt.py
+- url: /data2file/.*
+  script: data2file.py
+- url: /
+  static_files: home/index.html
+  upload: /
+- url: /
+  static_dir: home

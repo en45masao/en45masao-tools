@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+fieldset {
+	width: 768px !important;
+	margin: 1em 0;
+	padding: 0.5em;
+}
+fieldset .headline {
+	display: block;
+	width: 25%;
+	float: left;
+	margin: 0.33em 1em 0.33em 0;
+	text-align: right;
+}
+fieldset br {
+    clear: left;
+}
+</style>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
+<script type="text/javascript">
+google.load('visualization', '1', {packages: ['table']});
+
+jQuery(function($){
+	var delimiter = ': ';
+	var data;
+	var table;
+
+	google.setOnLoadCallback(initTable);
+
+	$('#list_id').click(function() {
+		$('#list_id').autocomplete('search', delimiter);
+	});
+	$('#user_id').change(function() {
+		readLists($(this).val());
+	});
+	$('#list_id, #file_name').change(function() {
+		$(this).next().button(($(this).val()) ? 'enable' : 'disable');
+	});
+	$('input[name="pagesize"]:radio').change(function() {
+		updateTable();
+	});
+	$('#form_load').submit(function() {
+		readItems($('#list_id').val().split(delimiter, 1));
+		return false;
+	});
+	$('#form_save').submit(function() {
+		var str = '';
+		var sortedRows = table.getSortInfo().sortedIndexes;
+		var numCols = data.getNumberOfColumns();
+		var numRows = data.getNumberOfRows();
+		for (var row = 0; row < numRows; row++) {
+			for (var col = 0; col < numCols; col++) {
+				if (col > 0) {
+					str += ',';
+				}
+				var value = data.getValue((sortedRows !== null) ? sortedRows[row] : row, col);
+				if (value) {
+					str += '\"' + String(value).replace('\"', '\"\"') + '\"';
+				}
+			}
+			str += '\r\n';
+		}
+		$('#file_body').val(str);
+	});
+
+	$('h1').addClass('ui-widget-header');
+	$('#form_load fieldset, #form_save fieldset').accordion({header: 'legend', autoHeight: false, icons: null});
+	$('#form_table fieldset').accordion({header: 'legend', autoHeight: false});
+	$('fieldset').css('margin-bottom', '0.5em');
+	$('#form_load legend, #form_save legend').addClass('ui-accordion').css('cursor', 'auto');
+	$('#form_table legend').addClass('ui-accordion');
+	$('input:submit').button();
+	$('#destenc, #pagesize').buttonset().css('font-size', '75%');
+	$('#list_id').autocomplete({change: function(event, ui) {
+		$('#list_id').change();
+	}});
+
+	$('input:text').val('').change();
+	$('#form_table legend').click(function() {
+		$(this).next().toggle('fast');
+		return false;
+	}).next().hide();
+
+	function initTable() {
+		data = new google.visualization.DataTable();
+		data.addColumn('number', 'Item ID',			'id');
+		data.addColumn('string', 'Item',			'cue.text');
+		data.addColumn('string', 'Response',		'responses[0].text');
+		data.addColumn('string', 'Part of Speech',	'cue.part_of_speech');
+
+		table = new google.visualization.Table(document.getElementById('list_table'));
+		updateTable();
+	}
+
+	function updateTable() {
+		var options = {
+			allowHtml: true,
+			page: 'enable',
+			pageSize: Number($('input[name="pagesize"]:checked').val()),
+			showRowNumber: true
+		}
+		table.draw(data, options);
+		$('.google-visualization-table-tr-head').sortable({axis: 'x', scroll: false});
+	}
+
+	function readLists(user_id) {
+		var page = 1;
+		var lists = [];
+
+		
+
+		var baseUrl = 'http://api.smart.fm/users/' + user_id + '/lists.json';
+		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+
+		function readNext(list) {
+			if (list.length == 0) {
+				
+				return false;
+			}
+
+			$.each(list, function(i, item) {
+				lists.push(item.id + delimiter + item.title);
+			});
+			$('#list_id').autocomplete('option', {source: lists.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
+
+			page++;
+			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		}
+	}
+
+	function readItems(id) {
+		var page = 1;
+		var maxSentence = 0;
+
+		$('#progress_dialog').dialog({
+			modal: true
+		});
+		$('#progress_dialog > p').text('Now loading.');
+		$('#progress_dialog > img').position({of: $('#progress_dialog'), my: 'center bottom', at: 'center bottom', offset: '0 -16'});
+
+		$.get('http://api.smart.fm/lists/' + id + '.json', function(data) {
+			$('#list_title').text(data.title);
+		}, 'jsonp');
+
+		initTable();
+		var baseUrl = (isNaN(id)) ? 'http://api.smart.fm/users/' + id + '/items.json' : 'http://api.smart.fm/lists/' + id + '/items.json';
+		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+
+		function readNext(list) {
+			if (typeof list.length == 'undefined' || list.length == 0) {
+				updateTable();
+				$('#progress_dialog').dialog('destroy');
+				return false;
+			}
+
+			$.each(list, function(i, item) {
+				while (maxSentence < item.sentences.length) {
+					var idBase = 'sentences[' + maxSentence + ']';
+					data.addColumn('number', 'Sentence ID ' + (maxSentence + 1), idBase + '.id');
+					data.addColumn('string', 'Sentence '    + (maxSentence + 1), idBase + '.text');
+					data.addColumn('string', 'Translation ' + (maxSentence + 1), idBase + '.translations[0].text');
+					maxSentence++;
+				}
+
+				var no = data.addRow();
+				var numCols = data.getNumberOfColumns()
+				for (var i = 0; i < numCols; i++) {
+					try {
+						data.setCell(no, i, eval('item.' + data.getColumnId(i)));
+					} catch (e) {
+					}
+				}
+			});
+
+			updateTable();
+			$('#progress_dialog > p').text(data.getNumberOfRows() + ' items have been loaded.');
+
+			page++;
+			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		}
+	}
+});
+
+</script>
+<title>Smart.fm List Converter</title>
+</head>
+
+<body class="ui-widget">
+<h1><a href="http://smart.fm/">Smart.fm</a> List Converter</h1>
+<h2>Settings</h2>
+
+<form id="form_load">
+<fieldset>
+<legend>Source</legend>
+<div>
+<label class="headline" for="user_id">Your smart.fm ID:</label><input type="text" id="user_id" size="40"> (optional)<br>
+<label class="headline" for="list_id">List ID:</label><input type="text" id="list_id" size="40"> <input type="submit" value="Load"><br>
+</div>
+</fieldset>
+</form>
+
+<form id="form_save" method="post" action="/txt2txt/download">
+<fieldset>
+<legend>Destination</legend>
+<div>
+<span class="headline">Encoding:</span>
+<span id="destenc">
+<input type="radio" id="destenc_utf-8" name="destenc" value="utf-8"><label for="destenc_utf-8">UTF-8</label>
+<input type="radio" id="destenc_latin_1" name="destenc" value="latin_1"><label for="destenc_latin_1">Latin-1</label>
+<input type="radio" id="destenc_cp932" name="destenc" value="cp932" checked="checked"><label for="destenc_cp932" title="日本語">CP932</label>
+<input type="radio" id="destenc_cp936" name="destenc" value="cp936"><label for="destenc_cp936" title="簡体字中国語(GBK)">CP936</label>
+<input type="radio" id="destenc_cp949" name="destenc" value="cp949"><label for="destenc_cp949" title="韓国語">CP949</label>
+<input type="radio" id="destenc_cp950" name="destenc" value="cp950"><label for="destenc_cp950" title="繁体字中国語(Big5)">CP950</label>
+</span><br>
+<label class="headline" for="file_name">CSV file name:</label><input type="text" id="file_name" name="filename" size="40"> <input type="submit" value="Save"><br>
+<input type="hidden" id="file_body" name="body" value="">
+</div>
+</fieldset>
+</form>
+
+<form id="form_table">
+<fieldset>
+<legend><a>Table</a></legend>
+<div>
+<span class="headline">Items per page:</span>
+<span id="pagesize">
+<input type="radio" id="pagesize_20" name="pagesize" value="20"><label for="pagesize_20">20</label>
+<input type="radio" id="pagesize_50" name="pagesize" value="50"><label for="pagesize_50">50</label>
+<input type="radio" id="pagesize_100" name="pagesize" value="100" checked="checked"><label for="pagesize_100">100</label>
+<input type="radio" id="pagesize_200" name="pagesize" value="200"><label for="pagesize_200">200</label>
+<input type="radio" id="pagesize_500" name="pagesize" value="500"><label for="pagesize_500">500</label>
+<input type="radio" id="pagesize_1000" name="pagesize" value="1000"><label for="pagesize_1000">1000</label>
+</span><br>
+</div>
+</fieldset>
+</form>
+
+<h2 id="list_title">List</h2>
+<div id="list_table"></div>
+<div id="progress_dialog" class="ui-helper-hidden" title="Loading..."><p></p><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div>
+</body>
+</html>

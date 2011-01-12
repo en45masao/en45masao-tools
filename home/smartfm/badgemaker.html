@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+form {
+	width: 640px !important;
+}
+fieldset {
+	line-height: 2 !important;
+}
+fieldset .headline {
+	display: block;
+	width: 20%;
+	float: left;
+	margin-right: 1em;
+	text-align: right;
+}
+fieldset br {
+    clear: left;
+}
+</style>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
+<script type="text/javascript">
+jQuery(function($) {
+	var study_iknow;
+	var study_dictation;
+	var study_brainspeed;
+
+	$('#form_load').submit(function() {
+		loadStudyResults($('#user_id').val());
+		return false;
+	});
+	$('#form_save').submit(function() {
+		var canvas = document.getElementById('badge');
+		if (!canvas || !canvas.toDataURL) {
+			return false;
+		}
+		$('#file_body').val(canvas.toDataURL());
+	});
+	$('#form_settings input').change(function() {
+		updateBadge();
+	});
+
+	$('input:submit').button();
+	$('#target, #lang').buttonset().css('font-size', '75%');
+	$('fieldset').each(function() {
+		$('<h3><a href="#">' + $(this).find('legend').text() + '</a></h3>').insertBefore($(this));
+	});
+	$('legend').hide();
+	$('form').accordion({autoHeight: false, icons: null});
+
+	$('form *').blur(function() {
+//		saveSettings();
+	});
+
+	$('form').each(function() {
+		$(this)[0].reset();
+	});
+	loadSettings();
+
+	function loadStudyResults(userId) {
+		$.get('http://api.smart.fm/users/' + userId + '/study_results/iknow.json', function(data) {
+			if (data.total_summary) {
+				study_iknow = data.total_summary;
+				updateBadge();
+			}
+		}, 'jsonp');
+
+		$.get('http://api.smart.fm/users/' + userId + '/study_results/dictation.json', function(data) {
+			if (data.total_summary) {
+				study_dictation = data.total_summary;
+				updateBadge();
+			}
+		}, 'jsonp');
+
+		$.get('http://api.smart.fm/users/' + userId + '/study_results/brainspeed.json', function(data) {
+			if (data.total_summary) {
+				study_brainspeed = data.total_summary;
+				updateBadge();
+			}
+		}, 'jsonp');
+	}
+
+	var updateBadge = (function() {
+		var heights = [87, 160, 233];
+		var imgBadgeEn = document.getElementById('badge_en');
+		var imgBadgeJa = document.getElementById('badge_ja');
+		var imgNumbersLarge = document.getElementById('numbers_large');
+		var imgNumbersSmall = document.getElementById('numbers_small');
+
+		return function() {
+			function drawNumber(c, img, number, centerX, topY) {
+				number = number || 0;
+				var width  = $(img).width();
+				var height = $(img).height() / 10;
+				var strNumber = String(number);
+				for (var i = 0; i < strNumber.length; i++) {
+					c.drawImage(img, 
+						0, height * Number(strNumber.charAt(i)), width, height,
+						Math.floor(centerX - width * strNumber.length / 2 + width * i), topY, width, height);
+				}
+			}
+
+			if (!study_iknow && !study_dictation && !study_brainspeed) {
+				return;
+			}
+
+			$('#badge').remove();
+			$('#badge_area').append('<canvas id="badge" width="' + $(imgBadgeEn).width() + '" height="' + heights[$('input[name="target"]:checked').val()] + '"></canvas>');
+
+			var canvas = document.getElementById('badge');
+			if (!canvas || !canvas.getContext) {
+				return;
+			}
+
+			var c = canvas.getContext('2d');
+			c.drawImage(($('#lang_ja').attr('checked')) ? imgBadgeJa : imgBadgeEn, 0, 0);
+
+			if (study_iknow) {
+				drawNumber(c, imgNumbersLarge, study_iknow.studied, 51, 29);
+				drawNumber(c, imgNumbersLarge, study_iknow.completed, 159, 29);
+			}
+			if (study_dictation) {
+				drawNumber(c, imgNumbersSmall, study_dictation.completed, 55, 115);
+				drawNumber(c, imgNumbersSmall, study_dictation.skill_level, 157, 115);
+			}
+			if (study_brainspeed) {
+				drawNumber(c, imgNumbersSmall, study_brainspeed.best_speed, 55, 188);
+				drawNumber(c, imgNumbersSmall, study_brainspeed.best_score, 157, 188);
+			}
+		};
+	})();
+
+	function saveSettings() {
+		var str = 'settings=' + $.param($('form :text, form :checked').filter('[name!="body"]')).replace(/\+/g, ' ') + '; expires=' + new Date(2020, 0, 1) + ';';
+		document.cookie = str;
+	}
+
+	function loadSettings() {
+		var params = document.cookie.replace(/^settings=/, '').split('&');
+		for (var i = 0; i < params.length; i++) {
+			var index = params[i].indexOf('=');
+			var key = decodeURIComponent(params[i].slice(0, index));
+			var value = decodeURIComponent(params[i].slice(index + 1));
+			$('input[name="' + key + '"]').each(function() {
+				$(this).val([value]).change();
+			});
+		}
+	}
+});
+</script>
+<title>Smart.fm Progress Badge Maker</title>
+</head>
+
+<body class="ui-widget">
+<h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> Progress Badge Maker</h1>
+
+<div style="width: 654px; float: left">
+<h2>Settings</h2>
+<form id="form_load">
+	<fieldset>
+		<legend>Source</legend>
+		<label class="headline">smart.fm ID:</label><input type="text" id="user_id" size="30"> <input type="submit" value="Load"><br>
+	</fieldset>
+</form>
+<form id="form_save" method="post" action="/data2file/download">
+	<fieldset>
+		<legend>Destination</legend>
+		<label class="headline" for="file_name">File name:</label><input type="text" id="file_name" name="filename" size="30"> <input type="submit" value="Save"><br>
+		<input type="hidden" id="file_body" name="body" value="">
+	</fieldset>
+</form>
+<form id="form_settings">
+	<fieldset>
+		<legend>Settings</legend>
+		<span class="headline">Target:</span>
+		<span id="target">
+			<input type="radio" id="target_3" name="target" value="2" checked="checked"><label for="target_3">All</label>
+			<input type="radio" id="target_2" name="target" value="1"><label for="target_2">iKnow! + Dictation</label>
+			<input type="radio" id="target_1" name="target" value="0"><label for="target_1">Only iKnow!</label>
+		</span><br>
+		<span class="headline">Language:</span>
+		<span id="lang">
+			<input type="radio" id="lang_en" name="lang" value="en"><label for="lang_en">English</label>
+			<input type="radio" id="lang_ja" name="lang" value="ja" checked="checked"><label for="lang_ja">Japanese</label>
+		</span><br>
+	</fieldset>
+</form>
+</div>
+
+<div style="float: left">
+<h2>Badge</h2>
+<div id="badge_area"></div>
+</div>
+
+<div class="ui-helper-hidden-accessible">
+<img id="badge_en" src="./badge_en.png">
+<img id="badge_ja" src="./badge_ja.png">
+<img id="numbers_large" src="./numbers_large.png">
+<img id="numbers_small" src="./numbers_small.png">
+</div>
+</body>
+</html>

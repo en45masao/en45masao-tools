@@ -1,0 +1,540 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+form {
+	width: 768px;
+}
+fieldset {
+	line-height: 2;
+}
+fieldset .headline {
+	display: block;
+	width: 25%;
+	float: left;
+	margin-right: 1em;
+	text-align: right;
+}
+fieldset br {
+    clear: left;
+}
+a img {
+	border: none;
+}
+.icon {
+	text-align: center;
+}
+.ui-autocomplete a {
+	white-space: nowrap;
+}
+.google-visualization-table-table a, .google-visualization-table-table b, .google-visualization-table-table img {
+	padding: 0;
+	vertical-align: baseline;
+}
+</style>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
+<script type="text/javascript">
+google.load('visualization', '1', {packages: ['table']});
+
+jQuery(function($) {
+	var delimiter = ': ';
+	var table = new google.visualization.Table(document.getElementById('list_table'));
+	var data;
+	var view;
+
+	$('#list_id').click(function() {
+		$('#list_id').autocomplete('search', delimiter);
+	});
+	$('#user_id').change(function() {
+		$('#user_id_opt').val($(this).val());
+	});
+	$('#user_id_opt').change(function() {
+		$('#user_id').val($(this).val());
+		var userId = $(this).val();
+		if (!userId) {
+			return;
+		}
+		readUserLists('http://api.smart.fm/users/' + $(this).val() + '/lists.json', {
+			delimiter: ': ',
+			before: function() {
+				$('#waiting_animation').remove();
+				$('<img id="waiting_animation" src="http://assets3.smart.fm/html5/images/animated/loading_16px_white_gray.gif" alt="">').appendTo('body');
+				$('#waiting_animation').position({of: $('#list_id'), my: 'right center', at: 'right center', offset: '-8 0'});
+				return true;
+			},
+			progress: function(result) {
+				$('#list_id').autocomplete('option', {source: result.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
+				return true;
+			},
+			complete: function(result) {
+				$('#waiting_animation').remove();
+			}
+		});
+	});
+	$('#list_id, #user_id, #file_name').change(function() {
+		$(this).next().button(($(this).val()) ? 'enable' : 'disable');
+	});
+	$('#tab_table input').change(function() {
+		updateTable(data);
+	});
+	$('#form_load').submit(function() {
+		if ($(this).tabs('option', 'selected') === 0) {	// The "List" tab
+			var listId = $('#list_id').val().split(delimiter, 1);
+			readListItems('http://api.smart.fm/lists/' + listId + '/items.json', {
+				before: function() {
+					$('#progress_dialog').dialog('destroy').remove();
+					$('<div id="progress_dialog" class="ui-helper-hidden" title="Loading..."><p>Now loading.</p><div style="text-align: center"><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div></div>').appendTo('body');
+					$('#progress_dialog').dialog({modal: true});
+
+					$.get('http://api.smart.fm/lists/' + listId + '.json', function(info) {
+						$('#list_title').text(info.title);
+					}, 'jsonp');
+					return true;
+				},
+				progress: function(result) {
+					if ($('#progress_dialog:visible').length === 0) {
+						return false;
+					}
+					data = result;
+					$('#progress_dialog > p').text(data.getNumberOfRows() + ' items have been loaded.');
+					if (Math.ceil(data.getNumberOfRows() / 100) * 100 >= Number($('input[name="pagesize"]:checked').val())) {
+						updateTable(data);
+					}
+					return true;
+				},
+				complete: function(result) {
+					data = result;
+					updateTable(data);
+					$('#progress_dialog').dialog('destroy').remove();
+				}
+			});
+		} else if ($(this).tabs('option', 'selected') === 1) {	// The "User" tab
+			var userId = $('#user_id').val();
+			var baseUrl = 'http://api.smart.fm/users/' + userId + '/items.json';
+			if ($('#uncompleted').attr('checked')) {
+				baseUrl += '?sort=progress';
+			}
+			readListItems(baseUrl, {
+				before: function() {
+					$('#progress_dialog').dialog('destroy').remove();
+					$('<div id="progress_dialog" class="ui-helper-hidden" title="Loading..."><p>Now loading.</p><div style="text-align: center"><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div></div>').appendTo('body');
+					$('#progress_dialog').dialog({modal: true});
+
+					$('#list_title').text(userId + '\'s Studied Items');
+					return true;
+				},
+				progress: function(result) {
+					if ($('#progress_dialog:visible').length === 0) {
+						return false;
+					}
+					data = result;
+					if ($('#uncompleted').attr('checked')) {
+						var col;
+						for (col = 0; col < data.getNumberOfColumns(); col++) {
+							if (data.getColumnId(col) === 'progress.percentage') {
+								break;
+							}
+						}
+						var completedItems = data.getFilteredRows([{column: col, value: 100}]).sort(function(a, b) {return b - a;});
+						if (completedItems.length > 0) {
+							for (var i = 0; i < completedItems.length; i++) {
+								data.removeRow(completedItems[i]);
+							}
+							return false;
+						}
+					}
+					$('#progress_dialog > p').text(data.getNumberOfRows() + ' items have been loaded.');
+					if (Math.ceil(data.getNumberOfRows() / 100) * 100 <= Number($('input[name="pagesize"]:checked').val())) {
+						updateTable(data);
+					}
+					return true;
+				},
+				complete: function(result) {
+					data = result;
+					updateTable(data);
+					$('#progress_dialog').dialog('destroy').remove();
+				}
+			});
+		} else {
+			alert('ASSERT: Invalid index.');
+		}
+
+		return false;
+	});
+	$('#form_save').submit(function() {
+		var str = '';
+		var numCols = view.getNumberOfColumns();
+		var enableCols = view.getViewColumns();
+		for (var i = 0; i < numCols; i++) {
+			if (typeof enableCols[i] !== 'number') {
+				var colId = view.getColumnId(i);
+				var numDataCols = data.getNumberOfColumns();
+				for (var j = 0; j < numDataCols; j++) {
+					if (colId === data.getColumnId(j)) {
+						enableCols[i] = j;
+						break;
+					}
+				}
+			}
+		}
+		var numRows = view.getNumberOfRows();
+		var sortedRows = table.getSortInfo().sortedIndexes;
+		for (var row = 0; row < numRows; row++) {
+			for (var col = 0; col < numCols; col++) {
+				if (col > 0) {
+					str += ',';
+				}
+				var value = data.getValue((sortedRows === null) ? row : sortedRows[row], enableCols[col]);
+				if (value || typeof value === 'number' || typeof value === 'boolean') {
+					str += '\"' + String(value).replace('\"', '\"\"') + '\"';
+				}
+			}
+			str += '\r\n';
+		}
+		$('#file_body').val(str);
+	});
+
+	$('input:submit').button();
+	$('#destenc, #pagesize').buttonset().css('font-size', '75%');
+	$('#list_id').autocomplete({change: function(event, ui) {
+		$('#list_id').change();
+	}});
+	$('legend').hide();
+	$('#form_load').tabs({
+		select: function(event, ui) {
+			if (ui.index === 0) {	// The "List" tab
+				$('#columns_sentence').toggleClass('ui-state-disabled', false).find('input').removeAttr('disabled');
+				$('#columns_progress').toggleClass('ui-state-disabled', true).find('input').attr('disabled', 'disabled');
+			} else if (ui.index === 1) {	// The "User" tab
+				$('#columns_sentence').toggleClass('ui-state-disabled', true).find('input').attr('disabled', 'disabled');
+				$('#columns_progress').toggleClass('ui-state-disabled', false).find('input').removeAttr('disabled');
+			}
+			$('#waiting_animation').remove();
+		},
+		selected: -1,
+		panelTemplate: '<fieldset></fieldset>'
+	})
+	$('#form_save').tabs({
+		panelTemplate: '<fieldset></fieldset>'
+	});
+	$('#form_load').find('ul.ui-tabs-nav').append('<li class="ui-state-disabled" style="float: right">Source</li>');
+	$('#form_save').find('ul.ui-tabs-nav').append('<li class="ui-state-disabled" style="float: right">Destination</li>');
+	$('#form_load').tabs('select', 0);
+	$('#form_load *, #form_save *').blur(function() {
+		saveSettings();
+	});
+
+	$('form').each(function() {
+		$(this)[0].reset();
+	});
+	loadSettings();
+	if ($('#tab_user :checkbox[checked]').length === 0) {
+		$('#tab_user :checkbox').attr('checked', 'checked');
+	}
+	if ($('#tab_table :checkbox[checked]').length === 0) {
+		$('#tab_table :checkbox').attr('checked', 'checked');
+	}
+
+	addEventHandlers();
+
+	function addEventHandlers() {
+		function eventHandler(event) {
+			var numCols = view.getNumberOfColumns();
+			for (var col = 0; col < numCols; col++) {
+				var colId = view.getColumnId(col);
+				if (colId === 'id') {
+					$('#list_table tr[class!="google-visualization-table-tr-head"]').each(function() {
+						var td = $(this).find('td:eq(' + (col + 1) + ')');
+						td.wrapInner('<a href="http://smart.fm/items/' + td.text()  + '" target="_blank"></a>');
+					});
+				} else if (/\.id$/.test(colId)) {
+					$('#list_table tr[class!="google-visualization-table-tr-head"]').each(function() {
+						var td = $(this).find('td:eq(' + (col + 1) + ')');
+						td.wrapInner('<a href="http://smart.fm/sentences/' + td.text()  + '" target="_blank"></a>');
+					});
+				}
+			}
+		}
+
+		google.visualization.events.addListener(table, 'ready', eventHandler);
+		google.visualization.events.addListener(table, 'sort',  eventHandler);
+		google.visualization.events.addListener(table, 'page',  eventHandler);
+	}
+
+	function updateTable(data) {
+		function makeSoundIconLink(col) {
+			return function(data, row) {
+				var url = data.getValue(row, col);
+				return (url === null) ? '' : '<div class="icon"><a href="' + url + '" target="_blank"><img src="http://chart.apis.google.com/chart?chst=d_simple_text_icon_left&amp;chld=|16|000|glyphish_microphone|16|000|FFF" alt=""></a></div>';
+			};
+		}
+		function makeImageIconLink(col) {
+			return function(data, row) {
+				var url = data.getValue(row, col);
+				return (url === null) ? '' : '<div class="icon"><a href="' + url + '" target="_blank"><img src="http://chart.apis.google.com/chart?chst=d_simple_text_icon_left&amp;chld=|16|000|glyphish_photos|16|000|FFF" alt=""></a></div>';
+			};
+		}
+
+		if (!data) {
+			return;
+		}
+		var colIndexes = [];
+		var numCols = data.getNumberOfColumns();
+		for (var col = 0; col < numCols; col++) {
+			var colId = data.getColumnId(col);
+			var checkbox = $('input[value="' + colId.replace(/\[\d+\]/g, '[0]') + '"]');
+			if (!checkbox || checkbox.attr('disabled') || !checkbox.attr('checked')) {
+				continue;
+			}
+
+//			if (data.getDistinctValues(col)[0] === null) {
+//				continue;
+//			}
+
+			var colLabel = data.getColumnLabel(col);
+			if (/\.sound$/.test(colId)) {
+				colIndexes.push({id: colId, calc: makeSoundIconLink(col), type: 'string', label: colLabel});
+ 			} else if (/\.image$/.test(colId)) {
+				colIndexes.push({id: colId, calc: makeImageIconLink(col), type: 'string', label: colLabel});
+			} else {
+				colIndexes.push(col);
+			}
+		}
+
+		view = new google.visualization.DataView(data);
+		view.setColumns(colIndexes);
+
+		table.draw(view, {
+			allowHtml: true,
+			page: 'enable',
+			pageSize: Number($('input[name="pagesize"]:checked').val()),
+			showRowNumber: true
+		});
+	}
+
+	function readListItems(baseUrl, options) {
+		if (!baseUrl) {
+			return;
+		}
+		options = options || {};
+
+		var data = new google.visualization.DataTable();
+		data.addColumn('number',  'Item ID',        'id');
+		data.addColumn('string',  'Item',           'cue.text');
+		data.addColumn('string',  'Response',       'responses[0].text');
+		data.addColumn('string',  'Part of Speech', 'cue.part_of_speech');
+		data.addColumn('number',  'Percentage',     'progress.percentage');
+		data.addColumn('number',  'Urgency',        'progress.urgency');
+		data.addColumn('boolean', 'Skipped',        'progress.skipped');
+
+		var page = 1;
+		var maxSentence = 0;
+
+		if (typeof options.before === 'function') {
+			if (!options.before()) {
+				if (typeof options.complete === 'function') {
+					options.complete(data);
+				}
+				return false;
+			}
+		}
+
+		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+
+		function readNext(list) {
+			if (typeof list.length === 'undefined' || list.length === 0) {
+				if (typeof options.complete === 'function') {
+					options.complete(data);
+				}
+				return false;
+			}
+
+			$.each(list, function(i, item) {
+				while (item.sentences && maxSentence < item.sentences.length) {
+					var idBase = 'sentences[' + maxSentence + ']';
+					data.addColumn('number', 'Sentence ID ' + (maxSentence + 1), idBase + '.id');
+					data.addColumn('string', 'Sentence '    + (maxSentence + 1), idBase + '.text');
+					data.addColumn('string', 'Translation ' + (maxSentence + 1), idBase + '.translations[0].text');
+					data.addColumn('string', 'Sound '       + (maxSentence + 1), idBase + '.sound');
+					data.addColumn('string', 'Image '       + (maxSentence + 1), idBase + '.image');
+					maxSentence++;
+				}
+
+				var no = data.addRow();
+				var numCols = data.getNumberOfColumns()
+				for (var i = 0; i < numCols; i++) {
+					try {
+						data.setCell(no, i, eval('item.' + data.getColumnId(i)));
+					} catch (e) {
+					}
+				}
+			});
+
+			if (typeof options.progress === 'function') {
+				if (!options.progress(data)) {
+					if (typeof options.complete === 'function') {
+						options.complete(data);
+					}
+					return false;
+				}
+			}
+
+			page++;
+			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		}
+	}
+
+	function readUserLists(baseUrl, options) {
+		if (!baseUrl) {
+			return;
+		}
+		options = options || {};
+		options.delimiter = options.delimiter || ': ';
+
+		var lists = [];
+		var page = 1;
+
+		if (typeof options.before === 'function') {
+			if (!options.before()) {
+				if (typeof options.complete === 'function') {
+					options.complete(lists);
+				}
+				return;
+			}
+		}
+
+		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+
+		function readNext(list) {
+			if (typeof list.length === 'undefined' || list.length === 0) {
+				if (typeof options.complete === 'function') {
+					options.complete(lists);
+				}
+				return false;
+			}
+
+			$.each(list, function(i, item) {
+				lists.push(item.id + options.delimiter + item.title);
+			});
+
+			if (typeof options.progress === 'function') {
+				if (!options.progress(lists)) {
+					if (typeof options.complete === 'function') {
+						options.complete(lists);
+					}
+					return false;
+				}
+			}
+
+			page++;
+			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		}
+	}
+
+	function saveSettings() {
+		var str = 'settings=' + $.param($('form :text, form :checked').filter('[name!="body"]')).replace(/\+/g, ' ') + '; expires=' + new Date(2020, 0, 1) + ';';
+		document.cookie = str;
+	}
+
+	function loadSettings() {
+		var params = document.cookie.replace(/^settings=/, '').split('&');
+		for (var i = 0; i < params.length; i++) {
+			var index = params[i].indexOf('=');
+			var key = decodeURIComponent(params[i].slice(0, index));
+			var value = decodeURIComponent(params[i].slice(index + 1));
+			$('input[name="' + key + '"]').each(function() {
+				$(this).val([value]).change();
+			});
+		}
+	}
+});
+</script>
+<title>Smart.fm List Converter</title>
+</head>
+
+<body class="ui-widget">
+<h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> List Converter</h1>
+<h2>Settings</h2>
+
+<form id="form_load">
+	<ul>
+		<li><a href="#tab_list">List</a></li>
+		<li><a href="#tab_user">User</a></li>
+	</ul>
+	<fieldset id="tab_list">
+		<legend>List</legend>
+		<label class="headline" for="user_id_opt">Your smart.fm ID:</label><input type="text" id="user_id_opt" name="user_id_opt" size="40"> (optional)<br>
+		<label class="headline" for="list_id">List ID:</label><input type="text" id="list_id" name="list_id" size="40"> <input type="submit" value="Load"><br>
+	</fieldset>
+	<fieldset id="tab_user">
+		<legend>User</legend>
+		<label class="headline" for="user_id">Your smart.fm ID:</label><input type="text" id="user_id" name="user_id" size="40"> <input type="submit" value="Load"><br>
+		<span class="headline">Filter:</span><input type="checkbox" id="uncompleted" name="uncompleted" value="uncompleted"><label for="uncompleted">Without 100% Items</label> (strongly recommended)<br>
+	</fieldset>
+</form>
+
+<form id="form_save" method="post" action="/txt2txt/download">
+	<ul>
+		<li><a href="#tab_csv">CSV</a></li>
+		<li><a href="#tab_table">Table</a></li>
+	</ul>
+	<fieldset id="tab_csv">
+		<legend>CSV</legend>
+		<span class="headline">Encoding:</span>
+		<span id="destenc">
+			<input type="radio" id="destenc_utf-8" name="destenc" value="utf-8"><label for="destenc_utf-8">UTF-8</label>
+			<input type="radio" id="destenc_latin_1" name="destenc" value="latin_1"><label for="destenc_latin_1">Latin-1</label>
+			<input type="radio" id="destenc_cp932" name="destenc" value="cp932" checked="checked"><label for="destenc_cp932" title="日本語">CP932</label>
+			<input type="radio" id="destenc_cp936" name="destenc" value="cp936"><label for="destenc_cp936" title="簡体字中国語(GBK)">CP936</label>
+			<input type="radio" id="destenc_cp949" name="destenc" value="cp949"><label for="destenc_cp949" title="韓国語">CP949</label>
+			<input type="radio" id="destenc_cp950" name="destenc" value="cp950"><label for="destenc_cp950" title="繁体字中国語(Big5)">CP950</label>
+		</span><br>
+		<label class="headline" for="file_name">CSV file name:</label><input type="text" id="file_name" name="filename" size="40"> <input type="submit" value="Save"><br>
+		<br>
+		<br>
+		<input type="hidden" id="file_body" name="body" value="">
+	</fieldset>
+	<fieldset id="tab_table">
+		<legend>Table</legend>
+		<span class="headline">Items per page:</span>
+		<span id="pagesize">
+			<input type="radio" id="pagesize_20" name="pagesize" value="20"><label for="pagesize_20">20</label>
+			<input type="radio" id="pagesize_50" name="pagesize" value="50"><label for="pagesize_50">50</label>
+			<input type="radio" id="pagesize_100" name="pagesize" value="100" checked="checked"><label for="pagesize_100">100</label>
+			<input type="radio" id="pagesize_200" name="pagesize" value="200"><label for="pagesize_200">200</label>
+			<input type="radio" id="pagesize_500" name="pagesize" value="500"><label for="pagesize_500">500</label>
+			<input type="radio" id="pagesize_1000" name="pagesize" value="1000"><label for="pagesize_1000">1000</label>
+		</span><br>
+		<span id="columns_item">
+			<span class="headline">Columns (Item):</span>
+			<input type="checkbox" id="items_id" name="_id" value="id"><label for="items_id">ID</label>
+			<input type="checkbox" id="items_item" name="cue.text" value="cue.text"><label for="items_item">Item</label>
+			<input type="checkbox" id="items_response" name="responses[0].text" value="responses[0].text"><label for="items_response">Response</label>
+			<input type="checkbox" id="items_part_of_speech" name="cue.part_of_speech" value="cue.part_of_speech"><label for="items_part_of_speech">Part of Speech</label>
+		</span><br>
+		<span id="columns_sentence">
+			<span class="headline">Columns (Sentence):</span>
+			<input type="checkbox" id="sentences_id" name="sentences[0].id" value="sentences[0].id"><label for="sentences_id">ID</label>
+			<input type="checkbox" id="sentences_sentence" name="sentences[0].text" value="sentences[0].text"><label for="sentences_sentence">Sentence</label>
+			<input type="checkbox" id="sentences_translation" name="sentences[0].translations[0].text" value="sentences[0].translations[0].text"><label for="sentences_translation">Translation</label>
+			<input type="checkbox" id="sentences_sound" name="sentences[0].sound" value="sentences[0].sound"><label for="sentences_sound">Sound</label>
+			<input type="checkbox" id="sentences_image" name="sentences[0].image" value="sentences[0].image"><label for="sentences_image">Image</label>
+		</span><br>
+		<span id="columns_progress">
+			<span class="headline">Columns (Progress):</span>
+			<input type="checkbox" id="progress_percentage" name="progress.percentage" value="progress.percentage"><label for="progress_percentage">Percentage</label>
+			<input type="checkbox" id="progress_urgency" name="progress.urgency" value="progress.urgency"><label for="progress_urgency">Urgency</label>
+			<input type="checkbox" id="progress_skipped" name="progress.skipped" value="progress.skipped"><label for="progress_skipped">Skipped</label>
+		</span><br>
+	</fieldset>
+</form>
+
+<h2 id="list_title"></h2>
+<div id="list_table"></div>
+</body>
+</html>
