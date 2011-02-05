@@ -8,6 +8,8 @@ handlers:
   script: txt2txt.py
 - url: /data2file/.*
   script: data2file.py
+- url: /memento
+  script: memento.py
 - url: /
   static_files: home/index.html
   upload: /
