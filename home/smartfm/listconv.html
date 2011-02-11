@@ -218,7 +218,7 @@ jQuery(function($) {
 		},
 		selected: -1,
 		panelTemplate: '<fieldset></fieldset>'
-	})
+	});
 	$('#form_save').tabs({
 		panelTemplate: '<fieldset></fieldset>'
 	});
@@ -366,7 +366,7 @@ jQuery(function($) {
 				}
 
 				var no = data.addRow();
-				var numCols = data.getNumberOfColumns()
+				var numCols = data.getNumberOfColumns();
 				for (var i = 0; i < numCols; i++) {
 					try {
 						data.setCell(no, i, eval('item.' + data.getColumnId(i)));
@@ -459,6 +459,11 @@ jQuery(function($) {
 
 <body class="ui-widget">
 <h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> List Converter</h1>
+
+<div class="ui-state-highlight ui-corner-all"> 
+	<p><span style="float: left; margin: 0 0.5em;" class="ui-icon ui-icon-alert"></span> This application is no longer available due to the termination of smart.fm API.</p>
+</div>
+
 <h2>Settings</h2>
 
 <form id="form_load">
