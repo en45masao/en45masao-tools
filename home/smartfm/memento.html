@@ -27,12 +27,6 @@ fieldset br {
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
 <script type="text/javascript">
 jQuery(function($) {
-	$('#form_save').submit(function() {
-		$('#progress_dialog').dialog('destroy').remove();
-		$('<div id="progress_dialog" class="ui-helper-hidden" title="Now downloading..."><p>Please wait for a long moment without haste...</p><div style="text-align: center"><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div></div>').appendTo('body');
-		$('#progress_dialog').dialog({modal: true});
-		return true;
-	});
 	$('input:submit').button();
 	$('#target, #lang').buttonset().css('font-size', '75%');
 	$('fieldset').each(function() {
@@ -48,23 +42,11 @@ jQuery(function($) {
 <body class="ui-widget">
 <h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> Memento Maker</h1>
 
-<form id="form_save" method="get" action="/memento">
+<form id="form_save" method="post" action="/smartfm/memento">
 	<fieldset>
 		<legend>Save</legend>
 		<label class="headline">Your smart.fm ID:</label><input type="text" id="user_id" name="user_id" size="30"> <input type="submit" value="Save"><br>
 	</fieldset>
 </form>
-<!--
-<form id="form_settings">
-	<fieldset>
-		<legend>Settings</legend>
-		<span class="headline">Language:</span>
-		<span id="lang">
-			<input type="radio" id="lang_en" name="lang" value="en"><label for="lang_en">English</label>
-			<input type="radio" id="lang_ja" name="lang" value="ja" checked="checked"><label for="lang_ja">Japanese</label>
-		</span><br>
-	</fieldset>
-</form>
--->
 </body>
 </html>

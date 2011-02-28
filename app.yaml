@@ -8,8 +8,13 @@ handlers:
   script: txt2txt.py
 - url: /data2file/.*
   script: data2file.py
-- url: /memento
+- url: /smartfm/memento
   script: memento.py
+- url: /smartfm/memento/download
+  script: memento.py
+- url: /smartfm/memento/tasks/.*
+  script: memento.py
+  login: admin
 - url: /
   static_files: home/index.html
   upload: /
