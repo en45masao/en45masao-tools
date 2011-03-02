@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+{{ meta_refresh }}
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+form, table.ui-widget {
+	width: 640px !important;
+}
+fieldset {
+	line-height: 2 !important;
+}
+fieldset .headline {
+	display: block;
+	width: 25%;
+	float: left;
+	margin-right: 1em;
+	text-align: right;
+}
+fieldset br {
+    clear: left;
+}
+th {
+	width: 60%;
+	text-align: left;
+	font-weight: normal;
+}
+</style>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
+<script type="text/javascript">
+jQuery(function($) {
+	$('#user_id').blur(function() {
+		$(this).next().button(($(this).val()) ? 'enable' : 'disable');
+	});
+	$('input:submit, .button').button();
+	$('#folder').buttonset().css('font-size', '75%');
+	$('legend').each(function() {
+		$(this).wrapInner('<a href="#"></a>');
+		$(this).css('width', '100%')
+	});
+	$('fieldset').accordion({header: 'legend', autoHeight: false, icons: null});
+	$('#user_id').blur();
+});
+</script>
+<title>Smart.fm Memento Maker</title>
+</head>
+
+<body class="ui-widget">
+<h1 class="ui-widget-header">Smart.fm Memento Maker</h1>
+
+{% if trigger %}
+<form id="form_save" method="post" action="/smartfm/memento/trigger">
+	<fieldset>
+		<legend>Save</legend>
+		<div>
+			<label class="headline">Smart.fm ID:</label><input type="text" id="user_id" name="user_id" size="30"> <input type="submit" value="Save"><br>
+		</div>
+	</fieldset>
+	<fieldset>
+		<legend>Settings</legend>
+		<div>
+			<span class="headline">Zip folder:</span>
+			<span id="folder">
+				<input type="radio" id="folder_flat" name="folder" value="flat" checked="checked"><label for="folder_flat">Flat</label>
+				<input type="radio" id="folder_hierarchic" name="folder" value="hierarchic"><label for="folder_hierarchic">Hierarchic</label>
+			</span><br>
+			<span class="headline">Extension:</span>
+			<input type="checkbox" id="extension" name="extension" value="extension" checked="checked"><label for="extension">Add ".html"</label><br>
+			<span class="headline">Time zone:</span>
+			<select name="tz_hour">
+				<option value="-12">-12</option>
+				<option value="-11">-11</option>
+				<option value="-10">-10</option>
+				<option value="-9">-09</option>
+				<option value="-8">-08</option>
+				<option value="-7">-07</option>
+				<option value="-6">-06</option>
+				<option value="-5">-05</option>
+				<option value="-4">-04</option>
+				<option value="-3">-03</option>
+				<option value="-2">-02</option>
+				<option value="-1">-01</option>
+				<option value="0">00</option>
+				<option value="+1">+01</option>
+				<option value="+2">+02</option>
+				<option value="+3">+03</option>
+				<option value="+4">+04</option>
+				<option value="+5">+05</option>
+				<option value="+6">+06</option>
+				<option value="+7">+07</option>
+				<option value="+8">+08</option>
+				<option value="+9" selected="selected">+09</option>
+				<option value="+10">+10</option>
+				<option value="+11">+11</option>
+				<option value="+12">+12</option>
+				<option value="+13">+13</option>
+			</select>:
+			<select name="tz_minute">
+				<option value="0" selected="selected">00</option>
+				<option value="15">15</option>
+				<option value="30">30</option>
+				<option value="45">45</option>
+			</select>
+		</div>
+	</fieldset>
+</form>
+{% else %}{% if progress or download %}
+{% if progress %}
+<div class="ui-state-highlight ui-corner-all"> 
+	<p style="padding-left: 2em"><span class="ui-icon ui-icon-alert" style="float: left; margin: 0.25em 0 0 -1em;"></span> Please wait for a long moment without haste...<br>(If this page wouldn't refresh automatically, please reload the page manually.)</p>
+</div>
+{% endif %}
+{% if download %}
+<p><span class="ui-icon ui-icon-circle-arrow-s" style="float: left;"></span>Done! You can get zip file(s) via the following link(s):</p>
+<table>
+{% for url in download_urls %}
+    <tr><td><a href="{{ url|escape }}">http://en45masao.appspot.com{{ url|escape }}</td><td><a class="button ui-state-disabled" href="{{ url|escape }}">Download</a></td></tr>
+{% endfor %}
+</table>
+{% endif %}
+<h2>Progress</h2>
+<table class="ui-widget ui-widget-content ui-corner-all">
+	<tr><th {% if status_1 and not status_2 %} class="ui-state-default ui-corner-all" {% endif %}>Phase 1: Analyzing pages</th><td>{{ status_1 }}</td></tr>
+	<tr><th {% if status_2 and not status_3 %} class="ui-state-default ui-corner-all" {% endif %}>Phase 2: Downloading journals</th><td>{{ status_2 }}</td><td>{% if journals_bytes %}({{ journals_bytes|filesizeformat }}){% endif %}</td></tr>
+	<tr><th {% if status_3 and not status_4 %} class="ui-state-default ui-corner-all" {% endif %}>Phase 3: Downloading images</th><td>{{ status_3 }}</td><td>{% if resources_bytes %}({{ resources_bytes|filesizeformat }}){% endif %}</td></tr>
+	<tr><th {% if status_4 and not download %} class="ui-state-default ui-corner-all" {% endif %}>Phase 4: Dividing a zip file</th><td>{{ status_4 }}</td></tr>
+</table>
+<br>
+{% if progress %}
+<a class="button" href="/smartfm/memento/cancel?user_id={{ user_id }}&timestamp={{ timestamp }}">Cancel</a>
+{% endif %}
+{% if download %}
+<a class="button" href="/smartfm/memento.html">Back</a>
+{% endif %}
+{% endif %}{% endif %}
+
+</body>
+</html>
