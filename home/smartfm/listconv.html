@@ -6,20 +6,20 @@
 <link type="text/css" rel="stylesheet" href="/common.css" media="screen">
 <style type="text/css">
 form {
-	width: 768px;
+	width: 896px;
 }
 fieldset {
 	line-height: 2;
 }
 fieldset .headline {
 	display: block;
-	width: 25%;
+	width: 22.5%;
 	float: left;
 	margin-right: 1em;
 	text-align: right;
 }
 fieldset br {
-    clear: left;
+	clear: left;
 }
 a img {
 	border: none;
@@ -59,7 +59,7 @@ jQuery(function($) {
 		if (!userId) {
 			return;
 		}
-		readUserLists('http://api.smart.fm/users/' + $(this).val() + '/goals.json', {
+		readUserLists('http://api.smart.fm/users/' + userId + '/goals.json', {
 			delimiter: ': ',
 			before: function() {
 				$('#waiting_animation').remove();
@@ -71,8 +71,16 @@ jQuery(function($) {
 				return true;
 			},
 			complete: function(result) {
-				$('#list_id').autocomplete('option', {source: result.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
-				$('#waiting_animation').remove();
+				var goals = result;
+				// load created goals
+				readUserLists('http://api.smart.fm/users/' + userId + '/goals/creator.json', {
+					delimiter: ': ',
+					complete: function(result) {
+						goals = goals.concat(result);
+						$('#list_id').autocomplete('option', {source: goals.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
+						$('#waiting_animation').remove();
+					}
+				});
 			}
 		});
 	});
@@ -217,6 +225,7 @@ jQuery(function($) {
 			$('#waiting_animation').remove();
 		},
 		selected: -1,
+		disabled: [1],	// for the "User" tab
 		panelTemplate: '<fieldset></fieldset>'
 	});
 	$('#form_save').tabs({
@@ -228,6 +237,7 @@ jQuery(function($) {
 	$('#form_load *, #form_save *').blur(function() {
 		saveSettings();
 	});
+	$('#columns_progress').hide();
 
 	$('form').each(function() {
 		$(this)[0].reset();
@@ -250,12 +260,12 @@ jQuery(function($) {
 				if (colId === 'id') {
 					$('#list_table tr[class!="google-visualization-table-tr-head"]').each(function() {
 						var td = $(this).find('td:eq(' + (col + 1) + ')');
-						td.wrapInner('<a href="http://smart.fm/items/' + td.text()  + '" target="_blank"></a>');
+						td.wrapInner('<a href="http://smart.fm/items/' + td.text() + '" target="_blank"></a>');
 					});
 				} else if (/\.id$/.test(colId)) {
 					$('#list_table tr[class!="google-visualization-table-tr-head"]').each(function() {
 						var td = $(this).find('td:eq(' + (col + 1) + ')');
-						td.wrapInner('<a href="http://smart.fm/sentences/' + td.text()  + '" target="_blank"></a>');
+						td.wrapInner('<a href="http://smart.fm/sentences/' + td.text() + '" target="_blank"></a>');
 					});
 				}
 			}
@@ -324,17 +334,16 @@ jQuery(function($) {
 		options = options || {};
 
 		var data = new google.visualization.DataTable();
-		data.addColumn('number',  'Item ID',        'id');
-		data.addColumn('string',  'Item',           'cue.content.text');
-		data.addColumn('string', 'Transliteration', 'cue.related.transliterations[0].text');
-		data.addColumn('string',  'Response',       'response.content.text');
-		data.addColumn('string',  'Part of Speech', 'cue.related.part_of_speech');
-		data.addColumn('string',  'Sound ',         'cue.content.sound');
-//		data.addColumn('number',  'Percentage',     'progress.percentage');
-//		data.addColumn('number',  'Urgency',        'progress.urgency');
-//		data.addColumn('boolean', 'Skipped',        'progress.skipped');
+		data.addColumn('number',  'Item ID',         'id');
+		data.addColumn('string',  'Item',            'cue.content.text');
+		data.addColumn('string',  'Transliteration', 'cue.related.transliterations[0].text');
+		data.addColumn('string',  'Response',        'response.content.text');
+		data.addColumn('string',  'Part of Speech',  'cue.related.part_of_speech');
+		data.addColumn('string',  'Sound ',          'cue.content.sound');
+//		data.addColumn('number',  'Percentage',      'progress.percentage');
+//		data.addColumn('number',  'Urgency',         'progress.urgency');
+//		data.addColumn('boolean', 'Skipped',         'progress.skipped');
 
-		var page = 1;
 		var maxSentence = 0;
 
 		if (typeof options.before === 'function') {
@@ -346,9 +355,7 @@ jQuery(function($) {
 			}
 		}
 
-		$.get(baseUrl, {v: 2}, readNext, 'jsonp');
-
-		function readNext(list) {
+		$.get(baseUrl, {v: 2}, function readNext(list) {
 			if (typeof list.error !== 'undefined') {
 				if (typeof options.complete === 'function') {
 					options.complete(data);
@@ -356,22 +363,16 @@ jQuery(function($) {
 				alert(list.error.message); // poor man's error handling
 				return false;
 			}
-			if (typeof list.items.length === 'undefined' || list.items.length === 0) {
-				if (typeof options.complete === 'function') {
-					options.complete(data);
-				}
-				return false;
-			}
 
 			$.each(list.items, function(i, item) {
 				while (item.cue.related.sentences && maxSentence < item.cue.related.sentences.length) {
 					var idBase = 'cue.related.sentences[' + maxSentence + ']';
-					data.addColumn('number', 'Sentence ID ' + (maxSentence + 1), idBase + '.id');
-					data.addColumn('string', 'Sentence '    + (maxSentence + 1), idBase + '.text');
-					data.addColumn('string', 'Transliteration ' + (maxSentence + 1), idBase + '.transliterations[0].text');
-					data.addColumn('string', 'Translation ' + (maxSentence + 1), idBase + '.translations[0].text');
-					data.addColumn('string', 'Sound '       + (maxSentence + 1), idBase + '.sound');
-					data.addColumn('string', 'Image '       + (maxSentence + 1), idBase + '.image');
+					data.addColumn('number', 'Sentence ID '    + (maxSentence + 1), idBase + '.id');
+					data.addColumn('string', 'Sentence '       + (maxSentence + 1), idBase + '.text');
+					data.addColumn('string', 'Transliteration' + (maxSentence + 1), idBase + '.transliterations[0].text');
+					data.addColumn('string', 'Translation '    + (maxSentence + 1), idBase + '.translations[0].text');
+					data.addColumn('string', 'Sound '          + (maxSentence + 1), idBase + '.sound');
+					data.addColumn('string', 'Image '          + (maxSentence + 1), idBase + '.image');
 					maxSentence++;
 				}
 
@@ -394,10 +395,10 @@ jQuery(function($) {
 				}
 			}
 
-			page++;
-//			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
-			readNext({items:[]}); // simulate completed
-		}
+			if (typeof options.complete === 'function') {
+				options.complete(data);
+			}
+		}, 'jsonp');
 	}
 
 	function readUserLists(baseUrl, options) {
