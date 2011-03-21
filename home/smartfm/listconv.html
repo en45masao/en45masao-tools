@@ -326,6 +326,7 @@ jQuery(function($) {
 		var data = new google.visualization.DataTable();
 		data.addColumn('number',  'Item ID',        'id');
 		data.addColumn('string',  'Item',           'cue.content.text');
+		data.addColumn('string', 'Transliteration', 'cue.related.transliterations[0].text');
 		data.addColumn('string',  'Response',       'response.content.text');
 		data.addColumn('string',  'Part of Speech', 'cue.related.part_of_speech');
 		data.addColumn('string',  'Sound ',         'cue.content.sound');
@@ -367,6 +368,7 @@ jQuery(function($) {
 					var idBase = 'cue.related.sentences[' + maxSentence + ']';
 					data.addColumn('number', 'Sentence ID ' + (maxSentence + 1), idBase + '.id');
 					data.addColumn('string', 'Sentence '    + (maxSentence + 1), idBase + '.text');
+					data.addColumn('string', 'Transliteration ' + (maxSentence + 1), idBase + '.transliterations[0].text');
 					data.addColumn('string', 'Translation ' + (maxSentence + 1), idBase + '.translations[0].text');
 					data.addColumn('string', 'Sound '       + (maxSentence + 1), idBase + '.sound');
 					data.addColumn('string', 'Image '       + (maxSentence + 1), idBase + '.image');
@@ -535,6 +537,7 @@ jQuery(function($) {
 			<span class="headline">Columns (Item):</span>
 			<input type="checkbox" id="items_id" name="_id" value="id"><label for="items_id">ID</label>
 			<input type="checkbox" id="items_item" name="cue.content.text" value="cue.content.text"><label for="items_item">Item</label>
+			<input type="checkbox" id="items_transliteration" name="cue.related.transliterations[0].text" value="cue.related.transliterations[0].text"><label for="items_transliteration">Transliteration</label>
 			<input type="checkbox" id="items_response" name="response.content.text" value="response.content.text"><label for="items_response">Response</label>
 			<input type="checkbox" id="items_part_of_speech" name="cue.related.part_of_speech" value="cue.related.part_of_speech"><label for="items_part_of_speech">Part of Speech</label>
 			<input type="checkbox" id="items_sound" name="cue.content.sound" value="cue.content.sound"><label for="items_sound">Sound</label>
@@ -543,6 +546,7 @@ jQuery(function($) {
 			<span class="headline">Columns (Sentence):</span>
 			<input type="checkbox" id="sentences_id" name="cue.related.sentences[0].id" value="cue.related.sentences[0].id"><label for="sentences_id">ID</label>
 			<input type="checkbox" id="sentences_sentence" name="cue.related.sentences[0].text" value="cue.related.sentences[0].text"><label for="sentences_sentence">Sentence</label>
+			<input type="checkbox" id="sentences_transliteration" name="cue.related.sentences[0].transliterations[0].text" value="cue.related.sentences[0].transliterations[0].text"><label for="sentences_transliteration">Transliteration</label>
 			<input type="checkbox" id="sentences_translation" name="cue.related.sentences[0].translations[0].text" value="cue.related.sentences[0].translations[0].text"><label for="sentences_translation">Translation</label>
 			<input type="checkbox" id="sentences_sound" name="cue.related.sentences[0].sound" value="cue.related.sentences[0].sound"><label for="sentences_sound">Sound</label>
 			<input type="checkbox" id="sentences_image" name="cue.related.sentences[0].image" value="cue.related.sentences[0].image"><label for="sentences_image">Image</label>
