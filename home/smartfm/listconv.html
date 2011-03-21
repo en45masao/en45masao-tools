@@ -328,6 +328,7 @@ jQuery(function($) {
 		data.addColumn('string',  'Item',           'cue.content.text');
 		data.addColumn('string',  'Response',       'response.content.text');
 		data.addColumn('string',  'Part of Speech', 'cue.related.part_of_speech');
+		data.addColumn('string',  'Sound ',         'cue.content.sound');
 //		data.addColumn('number',  'Percentage',     'progress.percentage');
 //		data.addColumn('number',  'Urgency',        'progress.urgency');
 //		data.addColumn('boolean', 'Skipped',        'progress.skipped');
@@ -536,6 +537,7 @@ jQuery(function($) {
 			<input type="checkbox" id="items_item" name="cue.content.text" value="cue.content.text"><label for="items_item">Item</label>
 			<input type="checkbox" id="items_response" name="response.content.text" value="response.content.text"><label for="items_response">Response</label>
 			<input type="checkbox" id="items_part_of_speech" name="cue.related.part_of_speech" value="cue.related.part_of_speech"><label for="items_part_of_speech">Part of Speech</label>
+			<input type="checkbox" id="items_sound" name="cue.content.sound" value="cue.content.sound"><label for="items_sound">Sound</label>
 		</span><br>
 		<span id="columns_sentence">
 			<span class="headline">Columns (Sentence):</span>
