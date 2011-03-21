@@ -71,8 +71,16 @@ jQuery(function($) {
 				return true;
 			},
 			complete: function(result) {
-				$('#list_id').autocomplete('option', {source: result.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
-				$('#waiting_animation').remove();
+				var goals = result;
+				// load created goals
+				readUserLists('http://api.smart.fm/users/' + userId + '/goals/creator.json', {
+					delimiter: ': ',
+					complete: function(result) {
+						goals = goals.concat(result);
+						$('#list_id').autocomplete('option', {source: goals.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
+						$('#waiting_animation').remove();
+					}
+				});
 			}
 		});
 	});
