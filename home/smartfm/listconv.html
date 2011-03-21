@@ -59,7 +59,7 @@ jQuery(function($) {
 		if (!userId) {
 			return;
 		}
-		readUserLists('http://api.smart.fm/users/' + $(this).val() + '/lists.json', {
+		readUserLists('http://api.smart.fm/users/' + $(this).val() + '/goals.json', {
 			delimiter: ': ',
 			before: function() {
 				$('#waiting_animation').remove();
@@ -68,10 +68,10 @@ jQuery(function($) {
 				return true;
 			},
 			progress: function(result) {
-				$('#list_id').autocomplete('option', {source: result.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
 				return true;
 			},
 			complete: function(result) {
+				$('#list_id').autocomplete('option', {source: result.sort(function(a, b) {return a.split(delimiter, 1) - b.split(delimiter, 1);})});
 				$('#waiting_animation').remove();
 			}
 		});
@@ -85,13 +85,13 @@ jQuery(function($) {
 	$('#form_load').submit(function() {
 		if ($(this).tabs('option', 'selected') === 0) {	// The "List" tab
 			var listId = $('#list_id').val().split(delimiter, 1);
-			readListItems('http://api.smart.fm/lists/' + listId + '/items.json', {
+			readListItems('http://api.smart.fm/goals/' + listId + '/items.json', {
 				before: function() {
 					$('#progress_dialog').dialog('destroy').remove();
 					$('<div id="progress_dialog" class="ui-helper-hidden" title="Loading..."><p>Now loading.</p><div style="text-align: center"><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div></div>').appendTo('body');
 					$('#progress_dialog').dialog({modal: true});
 
-					$.get('http://api.smart.fm/lists/' + listId + '.json', function(info) {
+					$.get('http://api.smart.fm/goals/' + listId + '.json', {v: 2}, function(info) {
 						$('#list_title').text(info.title);
 					}, 'jsonp');
 					return true;
@@ -113,7 +113,7 @@ jQuery(function($) {
 					$('#progress_dialog').dialog('destroy').remove();
 				}
 			});
-		} else if ($(this).tabs('option', 'selected') === 1) {	// The "User" tab
+		} else if ($(this).tabs('option', 'selected') === 1) {	// The "User" tab - BROKEN
 			var userId = $('#user_id').val();
 			var baseUrl = 'http://api.smart.fm/users/' + userId + '/items.json';
 			if ($('#uncompleted').attr('checked')) {
@@ -325,12 +325,12 @@ jQuery(function($) {
 
 		var data = new google.visualization.DataTable();
 		data.addColumn('number',  'Item ID',        'id');
-		data.addColumn('string',  'Item',           'cue.text');
-		data.addColumn('string',  'Response',       'responses[0].text');
-		data.addColumn('string',  'Part of Speech', 'cue.part_of_speech');
-		data.addColumn('number',  'Percentage',     'progress.percentage');
-		data.addColumn('number',  'Urgency',        'progress.urgency');
-		data.addColumn('boolean', 'Skipped',        'progress.skipped');
+		data.addColumn('string',  'Item',           'cue.content.text');
+		data.addColumn('string',  'Response',       'response.content.text');
+		data.addColumn('string',  'Part of Speech', 'cue.related.part_of_speech');
+//		data.addColumn('number',  'Percentage',     'progress.percentage');
+//		data.addColumn('number',  'Urgency',        'progress.urgency');
+//		data.addColumn('boolean', 'Skipped',        'progress.skipped');
 
 		var page = 1;
 		var maxSentence = 0;
@@ -344,19 +344,26 @@ jQuery(function($) {
 			}
 		}
 
-		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		$.get(baseUrl, {v: 2}, readNext, 'jsonp');
 
 		function readNext(list) {
-			if (typeof list.length === 'undefined' || list.length === 0) {
+			if (typeof list.error !== 'undefined') {
+				if (typeof options.complete === 'function') {
+					options.complete(data);
+				}
+				alert(list.error.message); // poor man's error handling
+				return false;
+			}
+			if (typeof list.items.length === 'undefined' || list.items.length === 0) {
 				if (typeof options.complete === 'function') {
 					options.complete(data);
 				}
 				return false;
 			}
 
-			$.each(list, function(i, item) {
-				while (item.sentences && maxSentence < item.sentences.length) {
-					var idBase = 'sentences[' + maxSentence + ']';
+			$.each(list.items, function(i, item) {
+				while (item.cue.related.sentences && maxSentence < item.cue.related.sentences.length) {
+					var idBase = 'cue.related.sentences[' + maxSentence + ']';
 					data.addColumn('number', 'Sentence ID ' + (maxSentence + 1), idBase + '.id');
 					data.addColumn('string', 'Sentence '    + (maxSentence + 1), idBase + '.text');
 					data.addColumn('string', 'Translation ' + (maxSentence + 1), idBase + '.translations[0].text');
@@ -385,7 +392,8 @@ jQuery(function($) {
 			}
 
 			page++;
-			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+//			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+			readNext({items:[]}); // simulate completed
 		}
 	}
 
@@ -408,17 +416,24 @@ jQuery(function($) {
 			}
 		}
 
-		$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+		$.get(baseUrl, {v: 2, page: page, per_page: 100}, readNext, 'jsonp');
 
 		function readNext(list) {
-			if (typeof list.length === 'undefined' || list.length === 0) {
+			if (typeof list.error !== 'undefined') {
+				if (typeof options.complete === 'function') {
+					options.complete(lists);
+				}
+				alert(list.error.message); // poor man's error handling
+				return false;
+			}
+			if (typeof list.goals.length === 'undefined' || list.goals.length === 0) {
 				if (typeof options.complete === 'function') {
 					options.complete(lists);
 				}
 				return false;
 			}
 
-			$.each(list, function(i, item) {
+			$.each(list.goals, function(i, item) {
 				lists.push(item.id + options.delimiter + item.title);
 			});
 
@@ -432,7 +447,7 @@ jQuery(function($) {
 			}
 
 			page++;
-			$.get(baseUrl, {page: page, per_page: 100}, readNext, 'jsonp');
+			$.get(baseUrl, {v: 2, page: page, per_page: 100}, readNext, 'jsonp');
 		}
 	}
 
@@ -459,11 +474,11 @@ jQuery(function($) {
 
 <body class="ui-widget">
 <h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> List Converter</h1>
-
+<!--
 <div class="ui-state-highlight ui-corner-all"> 
 	<p><span style="float: left; margin: 0 0.5em;" class="ui-icon ui-icon-alert"></span> This application is no longer available due to the termination of smart.fm API.</p>
 </div>
-
+-->
 <h2>Settings</h2>
 
 <form id="form_load">
@@ -518,17 +533,17 @@ jQuery(function($) {
 		<span id="columns_item">
 			<span class="headline">Columns (Item):</span>
 			<input type="checkbox" id="items_id" name="_id" value="id"><label for="items_id">ID</label>
-			<input type="checkbox" id="items_item" name="cue.text" value="cue.text"><label for="items_item">Item</label>
-			<input type="checkbox" id="items_response" name="responses[0].text" value="responses[0].text"><label for="items_response">Response</label>
-			<input type="checkbox" id="items_part_of_speech" name="cue.part_of_speech" value="cue.part_of_speech"><label for="items_part_of_speech">Part of Speech</label>
+			<input type="checkbox" id="items_item" name="cue.content.text" value="cue.content.text"><label for="items_item">Item</label>
+			<input type="checkbox" id="items_response" name="response.content.text" value="response.content.text"><label for="items_response">Response</label>
+			<input type="checkbox" id="items_part_of_speech" name="cue.related.part_of_speech" value="cue.related.part_of_speech"><label for="items_part_of_speech">Part of Speech</label>
 		</span><br>
 		<span id="columns_sentence">
 			<span class="headline">Columns (Sentence):</span>
-			<input type="checkbox" id="sentences_id" name="sentences[0].id" value="sentences[0].id"><label for="sentences_id">ID</label>
-			<input type="checkbox" id="sentences_sentence" name="sentences[0].text" value="sentences[0].text"><label for="sentences_sentence">Sentence</label>
-			<input type="checkbox" id="sentences_translation" name="sentences[0].translations[0].text" value="sentences[0].translations[0].text"><label for="sentences_translation">Translation</label>
-			<input type="checkbox" id="sentences_sound" name="sentences[0].sound" value="sentences[0].sound"><label for="sentences_sound">Sound</label>
-			<input type="checkbox" id="sentences_image" name="sentences[0].image" value="sentences[0].image"><label for="sentences_image">Image</label>
+			<input type="checkbox" id="sentences_id" name="cue.related.sentences[0].id" value="cue.related.sentences[0].id"><label for="sentences_id">ID</label>
+			<input type="checkbox" id="sentences_sentence" name="cue.related.sentences[0].text" value="cue.related.sentences[0].text"><label for="sentences_sentence">Sentence</label>
+			<input type="checkbox" id="sentences_translation" name="cue.related.sentences[0].translations[0].text" value="cue.related.sentences[0].translations[0].text"><label for="sentences_translation">Translation</label>
+			<input type="checkbox" id="sentences_sound" name="cue.related.sentences[0].sound" value="cue.related.sentences[0].sound"><label for="sentences_sound">Sound</label>
+			<input type="checkbox" id="sentences_image" name="cue.related.sentences[0].image" value="cue.related.sentences[0].image"><label for="sentences_image">Image</label>
 		</span><br>
 		<span id="columns_progress">
 			<span class="headline">Columns (Progress):</span>
