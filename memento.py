@@ -11,8 +11,9 @@ import zipfile
 import logging
 import wsgiref.handlers
 from datetime import datetime, timedelta
-from HTMLParser import HTMLParser
+from HTMLParser import HTMLParser, HTMLParseError
 from google.appengine.api import urlfetch
+from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 from google.appengine.ext import webapp
@@ -114,7 +115,7 @@ class CommentParser(HTMLParser):
 
 		if not self._is_in_p and tag == 'a' and re.search(r'/users/[^/]+$', dic.get('href')):
 			username = re.search(r'/users/([^/]+$)', dic['href']).group(1)
-			if self._is_username or (dic.get('title') == username and dic.get('class') == ''):
+			if self._is_username or (dic.get('class') == '' or dic.get('class') == 'staff'):
 				self._append_info('username', username)
 				self._is_username = False
 
@@ -165,6 +166,10 @@ class CommentParser(HTMLParser):
 			self._is_in_p = False
 
 		self.comments[-1][key] = value
+
+	def canonicalize_comments(self):
+		if len(self.comments) > 0 and len(self.comments[-1]) < 3:	# '3' means comment, username, and date.
+			del(self.comments[-1])
 
 class JournalBodyFilter(HTMLParser):
 	def __init__(self, base_url):
@@ -337,23 +342,23 @@ class DownloadPage(webapp.RequestHandler):
 			# Gets all the journals as Movable Type format and stores them into a zip file.
 			mt_text = ''
 			for i in rng:
-				url = memcache.get(get_journals_key(self, i))
-				content = memcache.get(get_key(self, str(get_journal_id(url))))
+				journal_url = memcache.get(get_journals_key(self, i))
+				content = get_content(str(get_journal_id(journal_url)))
 				if content:
 					mt_text += content
-			zipobj.writestr('mt_log.txt'.encode('utf-8'), mt_text.encode('utf-8'))
+			zipobj.writestr('mt_log.txt'.encode('utf-8'), mt_text)
 
 			# Gets all the journal text and stores them into a zip file.
 			for i in rng:
 				journal_url = memcache.get(get_journals_key(self, i))
-				journal = memcache.get(journal_url)
+				journal = get_content(journal_url)
 				if journal:
 					filepath = get_filepath(journal_url, is_flat, has_extension)
 					if not filepath in zipobj.namelist():
 						zipobj.writestr(filepath.encode('utf-8'), journal)
 
 				comment_url = get_comment_url(get_journal_id(journal_url))
-				comment = memcache.get(comment_url)
+				comment = get_content(comment_url)
 				if comment:
 					filepath = get_filepath(comment_url, is_flat, has_extension)
 					if not filepath in zipobj.namelist():
@@ -366,7 +371,7 @@ class DownloadPage(webapp.RequestHandler):
 			# Gets all the resources and stores them into a zip file.
 			for i in rng:
 				resource_url = memcache.get(get_resources_key(self, i))
-				resource = memcache.get(resource_url)
+				resource = get_content(resource_url)
 				if resource:
 					filepath = get_filepath(resource_url, is_flat, has_extension)
 					if not filepath in zipobj.namelist():
@@ -418,11 +423,14 @@ class JournalSearcher(webapp.RequestHandler):
 
 		# Fetches a journal list page.
 		list_url = 'http://smart.fm/users/%s/journal?page=%d' % (user_id, page)
-		content = fetch_content(list_url)
+		content = fetch_content(list_url, 0)
 
 		# Parses an HTML to get a list of journals' URLs.
 		parser = JournalParser(list_url)
-		parser.feed(content)
+		try:
+			parser.feed(content)
+		except HTMLParseError:
+			logging.warning('Parse Error.')
 
 		# Searches journals' URLs from an HTML.
 		journal_urls = map(lambda rel_url: urlparse.urljoin(list_url, rel_url), re.findall(r'(/users/%s/journal/\d+/\d+/\d+/\d+[\w_-]*)' % (user_id), content))
@@ -435,27 +443,28 @@ class JournalSearcher(webapp.RequestHandler):
 				memcache.set(get_journals_key(self, journal_num), url)
 				memcache.incr(get_key(self, 'journal_num'))
 
-			taskqueue.add(url='/smartfm/memento/tasks/search', params={'user_id': user_id, 'timestamp': timestamp, 'page': page + 1})
+			if page < 100:
+				taskqueue.add(url='/smartfm/memento/tasks/search', params={'user_id': user_id, 'timestamp': timestamp, 'page': page + 1})
+				return
 
-		else:
-			# Eliminates redundant items.
-			dict_urls = {}
-			for i in xrange(memcache.get(get_key(self, 'journal_num'))):
-				url = memcache.get(get_journals_key(self, i))
-				id = get_journal_id(url)
-				if id not in dict_urls or len(url) > len(dict_urls[id]):
-					dict_urls[get_journal_id(url)] = url
-			memcache.set(get_key(self, 'journal_num'), len(dict_urls))
+		# Eliminates redundant items.
+		dict_urls = {}
+		for i in xrange(memcache.get(get_key(self, 'journal_num')) or 0):
+			url = memcache.get(get_journals_key(self, i))
+			id = get_journal_id(url)
+			if id not in dict_urls or len(url) > len(dict_urls[id]):
+				dict_urls[get_journal_id(url)] = url
+		memcache.set(get_key(self, 'journal_num'), len(dict_urls))
 
-			# Stores an optimized list of journals.
-			list_urls = sorted(dict_urls.values(), cmp=lambda a, b: cmp(get_journal_id(a), get_journal_id(b)), reverse=True)
-			for i in xrange(len(list_urls)):
-				memcache.set(get_journals_key(self, i), list_urls[i])
+		# Stores an optimized list of journals.
+		list_urls = sorted(dict_urls.values(), cmp=lambda a, b: cmp(get_journal_id(a), get_journal_id(b)), reverse=True)
+		for i in xrange(len(list_urls)):
+			memcache.set(get_journals_key(self, i), list_urls[i])
 
-#			logging.info('journals:\n\t' + '\n\t'.join(list_urls))
+#		logging.info('journals:\n\t' + '\n\t'.join(list_urls))
 
-			# Executes the next task to move to the next phase.
-			taskqueue.add(url='/smartfm/memento/tasks/analyze', params={'user_id': user_id, 'timestamp': timestamp, 'journal_index': 0})
+		# Executes the next task to move to the next phase.
+		taskqueue.add(url='/smartfm/memento/tasks/analyze', params={'user_id': user_id, 'timestamp': timestamp, 'journal_index': 0})
 
 class JournalAnalyzer(webapp.RequestHandler):
 	def post(self):
@@ -483,10 +492,10 @@ class JournalAnalyzer(webapp.RequestHandler):
 		if index < int(memcache.get(get_key(self, 'journal_num')) or 0):
 			# Fetches an HTML file.
 			journal_url = memcache.get(get_journals_key(self, index))
-			journal = fetch_content(journal_url)
+			journal = fetch_content(journal_url, 86400)
 
 			# Fetches comments.
-			comment = fetch_content(get_comment_url(get_journal_id(journal_url)), {'X-Requested-With': 'XMLHttpRequest'})
+			comment = fetch_content(get_comment_url(get_journal_id(journal_url)), 21600)
 
 			# Updates download size.
 			bytes = int(memcache.get(get_key(self, 'journals_bytes')) or 0)
@@ -496,11 +505,18 @@ class JournalAnalyzer(webapp.RequestHandler):
 
 			# Parses an HTML to get a list of resources' URLs.
 			journal_parser = JournalParser(journal_url)
-			journal_parser.feed(journal.decode('utf-8'))
+			try:
+				journal_parser.feed(journal.decode('utf-8'))
+			except HTMLParseError:
+				logging.warning('Parse Error.')
 
 			# Parses comments.
 			comment_parser = CommentParser(journal_url)
-			comment_parser.feed(comment.decode('utf-8'))
+			try:
+				comment_parser.feed(comment.decode('utf-8'))
+			except HTMLParseError:
+				logging.warning('Parse Error.')
+				comment_parser.canonicalize_comments()
 
 			# Stores a list of resources.
 			for url in journal_parser.resources:
@@ -511,7 +527,10 @@ class JournalAnalyzer(webapp.RequestHandler):
 
 			# Converts an HTML body into a Movable Type format text.
 			filter = JournalBodyFilter(journal_url)
-			filter.feed('\n'.join(journal.decode('utf-8').split('\n')[journal_parser.body_range[0]:journal_parser.body_range[1]]))
+			try:
+				filter.feed('\n'.join(journal.decode('utf-8').split('\n')[journal_parser.body_range[0]:journal_parser.body_range[1]]))
+			except HTMLParseError:
+				logging.warning('Parse Error.')
 
 			# Generates a meta data section.
 			journal_parser.date += timedelta(hours=tz_hour, minutes=tz_minute)
@@ -543,7 +562,7 @@ class JournalAnalyzer(webapp.RequestHandler):
 			fh.write('--------\n')
 
 			# Stores a Movable Type format text.
-			memcache.set(get_key(self, str(get_journal_id(journal_url))), fh.getvalue())
+			put_content(str(get_journal_id(journal_url)), fh.getvalue().encode('utf-8'))
 			fh.close()
 
 			taskqueue.add(url='/smartfm/memento/tasks/analyze', params={'user_id': user_id, 'timestamp': timestamp, 'journal_index': index + 1})
@@ -551,7 +570,7 @@ class JournalAnalyzer(webapp.RequestHandler):
 		else:
 			# Eliminates redundant items.
 			set_urls = set()
-			for i in xrange(memcache.get(get_key(self, 'resource_num'))):
+			for i in xrange(memcache.get(get_key(self, 'resource_num')) or 0):
 				set_urls.add(memcache.get(get_resources_key(self, i)))
 			for url in sorted(set_urls):
 				if not re.match(r'.*/%s/.*' % (user_id), url):
@@ -628,15 +647,12 @@ class ZipDivider(webapp.RequestHandler):
 		journals_bytes = 0
 		for i in xrange(journal_num):
 			journal_url = memcache.get(get_journals_key(self, i))
-			journal = memcache.get(get_key(self, str(get_journal_id(journal_url))))
-			journals_bytes += len(journal) if journal else 0
+			journals_bytes += get_content_size(journal_url)
 
 			comment_url = get_comment_url(get_journal_id(journal_url))
-			comment = memcache.get(comment_url)
-			journals_bytes += len(comment) if comment else 0
+			journals_bytes += get_content_size(comment_url)
 
-			content = memcache.get(get_key(self, str(get_journal_id(journal_url))))
-			journals_bytes += len(content) if content else 0
+			journals_bytes += get_content_size(str(get_journal_id(journal_url)))
 
 		# Divides the total files into 10MB chunks.
 		current_bytes = journals_bytes
@@ -645,8 +661,7 @@ class ZipDivider(webapp.RequestHandler):
 		url_index = 0
 		for i in xrange(resource_num):
 			resource_url = memcache.get(get_resources_key(self, i))
-			resource = memcache.get(resource_url)
-			bytes = len(resource) if comment else 0
+			bytes = get_content_size(resource_url)
 
 			if current_bytes + bytes > self.MAX_FILESIZE and url_index == 0:
 				memcache.set(get_download_urls_key(self, url_index), '/smartfm/memento/download?user_id=%s&timestamp=%s&target=1' % (user_id, timestamp))
@@ -674,17 +689,58 @@ class ZipDivider(webapp.RequestHandler):
 		# Moves to the next phase.
 		memcache.incr(get_key(self, 'phase'))
 
-def fetch_content(url, headers={}):
+class Data(db.Model):
+	url = db.StringProperty(required=True)
+	body = db.BlobProperty(required=True)
+	size = db.IntegerProperty()
+
+def fetch_content(url, time=21600):
 	logging.info(url)
-	content = memcache.get(url)
-	if content is None:
+
+	content = None
+	if time > 0:
+		content = memcache.get(url)
+	if content == None:
 		try:
+			headers = {} if re.match(r'http://smart\.fm/journals/\d+/\w', url) == None else {'X-Requested-With': 'XMLHttpRequest'}
 			result = urlfetch.fetch(url, headers=headers)
-			content = result.content if result.status_code < 400 else ''
+			if result.status_code < 400:
+				content = result.content
+				if time > 0:
+					memcache.add(url, content, time)
+					data = Data(url=url, body=content, size=len(content))
+					data.put()
 		except (urlfetch.InvalidURLError, urlfetch.DownloadError):
-			content = ''
-		memcache.add(url, content, time=21600)
-	return content
+			pass
+
+	return content or ''
+
+def get_content(url):
+	content = memcache.get(url)
+	if content == None:
+		query = db.Query(Data).filter('url =', url)
+		data = query.get()
+		if data:
+			content = data.body
+
+	return content or ''
+
+def get_content_size(url):
+#	content = memcache.get(url)
+#	if content != None:
+#		return len(content)
+
+	query = db.Query(Data).filter('url =', url)
+	data = query.get()
+	if data:
+		return data.size
+
+	return 0
+
+def put_content(key, content):
+	assert key != None and content != None
+	data = Data(url=key, body=content, size=len(content))
+	data.put()
 
 def modify_image_url(url):
 	return re.sub(r'^http://smart.fm/assets/user/', 'http://assets.smart.fm/assets/users/', url)	# workaround for the bug in smart.fm
