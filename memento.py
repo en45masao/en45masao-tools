@@ -208,6 +208,19 @@ class JournalBodyFilter(HTMLParser):
 		if name in htmlentitydefs.name2codepoint.keys():
 			self.body += unichr(htmlentitydefs.name2codepoint[name])
 
+	def feed(self, data):
+		lines = data.split('\n')
+		if '-----' in lines or '--------' in lines:
+			newdata = ''
+			for line in lines:
+				if line == '-----' or line == '--------':
+					newdata += line + ' \n'
+				else:
+					newdata += line + '\n'
+			HTMLParser.feed(self, newdata)
+		else:
+			HTMLParser.feed(self, data)
+
 class MainPage(webapp.RequestHandler):
 	def get(self):
 		# Outputs a rendered HTML.
