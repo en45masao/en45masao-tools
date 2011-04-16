@@ -167,7 +167,7 @@ jQuery(function($) {
 			if (!userId) {
 				return;
 			}
-			$.get('http://api.smart.fm/users/' + userId + '/friends.json', {per_page: 20}, function(friends) {
+			$.get('http://api.iknow.jp/users/' + userId + '/friends.json', {per_page: 20}, function(friends) {
 				$.each(friends, function(i, item) {friendIds.push(item.username);});
 //				friendIds.sort();
 				friendIds.unshift(userId);
@@ -276,7 +276,7 @@ jQuery(function($) {
 </head>
 
 <body class="ui-widget">
-<h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> Study Log Saver</h1>
+<h1 class="ui-widget-header">Smart.fm Study Log Saver</h1>
 
 <h2>Settings</h2>
 <form id="form_load">

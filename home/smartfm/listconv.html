@@ -59,7 +59,7 @@ jQuery(function($) {
 		if (!userId) {
 			return;
 		}
-		readUserLists('http://api.smart.fm/users/' + userId + '/goals.json', {
+		readUserLists('http://api.iknow.jp/users/' + userId + '/goals.json', {
 			delimiter: ': ',
 			before: function() {
 				$('#waiting_animation').remove();
@@ -73,7 +73,7 @@ jQuery(function($) {
 			complete: function(result) {
 				var goals = result;
 				// load created goals
-				readUserLists('http://api.smart.fm/users/' + userId + '/goals/creator.json', {
+				readUserLists('http://api.iknow.jp/users/' + userId + '/goals/creator.json', {
 					delimiter: ': ',
 					complete: function(result) {
 						goals = goals.concat(result);
@@ -93,13 +93,13 @@ jQuery(function($) {
 	$('#form_load').submit(function() {
 		if ($(this).tabs('option', 'selected') === 0) {	// The "List" tab
 			var listId = $('#list_id').val().split(delimiter, 1);
-			readListItems('http://api.smart.fm/goals/' + listId + '/items.json', {
+			readListItems('http://api.iknow.jp/goals/' + listId + '/items.json', {
 				before: function() {
 					$('#progress_dialog').dialog('destroy').remove();
 					$('<div id="progress_dialog" class="ui-helper-hidden" title="Loading..."><p>Now loading.</p><div style="text-align: center"><img src="http://assets3.smart.fm/html5/images/animated/loading_tabs_24px.gif" alt=""></div></div>').appendTo('body');
 					$('#progress_dialog').dialog({modal: true});
 
-					$.get('http://api.smart.fm/goals/' + listId + '.json', {v: 2}, function(info) {
+					$.get('http://api.iknow.jp/goals/' + listId + '.json', {v: 2}, function(info) {
 						$('#list_title').text(info.title);
 					}, 'jsonp');
 					return true;
@@ -123,7 +123,7 @@ jQuery(function($) {
 			});
 		} else if ($(this).tabs('option', 'selected') === 1) {	// The "User" tab - BROKEN
 			var userId = $('#user_id').val();
-			var baseUrl = 'http://api.smart.fm/users/' + userId + '/items.json';
+			var baseUrl = 'http://api.iknow.jp/users/' + userId + '/items.json';
 			if ($('#uncompleted').attr('checked')) {
 				baseUrl += '?sort=progress';
 			}
@@ -257,6 +257,7 @@ jQuery(function($) {
 			var numCols = view.getNumberOfColumns();
 			for (var col = 0; col < numCols; col++) {
 				var colId = view.getColumnId(col);
+/*
 				if (colId === 'id') {
 					$('#list_table tr[class!="google-visualization-table-tr-head"]').each(function() {
 						var td = $(this).find('td:eq(' + (col + 1) + ')');
@@ -268,6 +269,7 @@ jQuery(function($) {
 						td.wrapInner('<a href="http://smart.fm/sentences/' + td.text() + '" target="_blank"></a>');
 					});
 				}
+*/
 			}
 		}
 
@@ -477,7 +479,7 @@ jQuery(function($) {
 </head>
 
 <body class="ui-widget">
-<h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> List Converter</h1>
+<h1 class="ui-widget-header">Smart.fm List Converter</h1>
 <!--
 <div class="ui-state-highlight ui-corner-all"> 
 	<p><span style="float: left; margin: 0 0.5em;" class="ui-icon ui-icon-alert"></span> This application is no longer available due to the termination of smart.fm API.</p>

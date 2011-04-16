@@ -64,21 +64,21 @@ jQuery(function($) {
 	loadSettings();
 
 	function loadStudyResults(userId) {
-		$.get('http://api.smart.fm/users/' + userId + '/study_results/iknow.json', function(data) {
+		$.get('http://api.iknow.jp/users/' + userId + '/study_results/iknow.json', function(data) {
 			if (data.total_summary) {
 				study_iknow = data.total_summary;
 				updateBadge();
 			}
 		}, 'jsonp');
 
-		$.get('http://api.smart.fm/users/' + userId + '/study_results/dictation.json', function(data) {
+		$.get('http://api.iknow.jp/users/' + userId + '/study_results/dictation.json', function(data) {
 			if (data.total_summary) {
 				study_dictation = data.total_summary;
 				updateBadge();
 			}
 		}, 'jsonp');
 
-		$.get('http://api.smart.fm/users/' + userId + '/study_results/brainspeed.json', function(data) {
+		$.get('http://api.iknow.jp/users/' + userId + '/study_results/brainspeed.json', function(data) {
 			if (data.total_summary) {
 				study_brainspeed = data.total_summary;
 				updateBadge();
@@ -158,7 +158,7 @@ jQuery(function($) {
 </head>
 
 <body class="ui-widget">
-<h1 class="ui-widget-header"><a href="http://smart.fm/" target="_blank">Smart.fm</a> Progress Badge Maker</h1>
+<h1 class="ui-widget-header">Smart.fm Progress Badge Maker</h1>
 
 <div style="width: 654px; float: left">
 <h2>Settings</h2>
