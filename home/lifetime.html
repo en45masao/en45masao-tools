@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.12/themes/cupertino/jquery-ui.css" media="screen">
+<link type="text/css" rel="stylesheet" href="/common.css" media="screen">
+<style type="text/css">
+.heading {
+	margin: -1% -1% 0.5em -1%;
+	padding: 0.25em 1%;
+}
+</style>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.12/jquery-ui.min.js"></script>
+<script type="text/javascript">
+jQuery(function($) {
+	var CELL_WIDTH  = 5;
+	var CELL_HEIGHT = 4;
+
+	var MONTH_WIDTH = CELL_WIDTH * 7 + 1;
+	var MONTH_HEIGHT = CELL_HEIGHT * 6 + 1;
+
+	var YEAR_WIDTH = MONTH_WIDTH * 3 + 1;
+	var YEAR_HEIGHT = 6 + MONTH_HEIGHT * 4 + 1;
+
+	function makeCalenders() {
+		var canvas = document.getElementById('parts');
+		if (!canvas || !canvas.getContext) {
+			return false;
+		}
+
+		var context = canvas.getContext('2d');
+
+		context.fillStyle = '#e0e0e0';
+		context.fillRect(0, 0, 245, 96);
+
+		for (var y = 0; y < 4; y++) {
+			var days = 28 + y;
+			for (var x = 0; x < 7; x++) {
+				var originX = CELL_WIDTH * 7 * x;
+				var originY = CELL_HEIGHT * 6 * y;
+
+				drawMonthBar(context, originX, originY);
+
+				var col = x;
+				var row = 1;
+				if (days - (7 - x) - 28 > 0) {
+					row = 0;
+				}
+
+				for (var d = 0; d < days; d++) {
+					drawCell(context, originX + CELL_WIDTH * col, originY + CELL_HEIGHT * row);
+
+					col++;
+					if (col >= 7) {
+						col = 0;
+						row++;
+					}
+				}
+			}
+		}
+	}
+
+	function drawYear(context, originX, originY, year, str) {
+		context.save();
+
+		drawYearBar(context, originX, originY, year, str)
+
+		for (var m = 0; m < 12; m++) {
+			var monthX = originX + MONTH_WIDTH * (m % 3);
+			var monthY = originY + MONTH_HEIGHT * Math.floor(m / 3) + 6;
+
+			drawMonth(context, monthX, monthY, year, m);
+		}
+
+		context.restore();
+	}
+
+	function drawYearBar(context, originX, originY, year, str) {
+		context.save();
+
+		context.globalAlpha = 0.25;
+
+		context.fillStyle = '#808080';
+		context.fillRect(originX, originY, YEAR_WIDTH - 2, 5);
+
+		context.globalAlpha = 0.5;
+		context.fillStyle = '#ffffff';
+		context.fillRect(originX, originY, YEAR_WIDTH - 2, 1);
+		context.fillRect(originX, originY, 1, 5);
+
+		context.fillStyle = '#404040';
+		context.fillRect(originX, originY + 4, YEAR_WIDTH - 2, 1);
+		context.fillRect(originX + YEAR_WIDTH - 2, originY, 1, 5);
+
+		context.globalAlpha = 0.75;
+		drawText5x5(context, originX + Math.floor((YEAR_WIDTH - 6 * str.length) / 2), originY, '#000000', str, 1);
+
+		context.restore();
+	}
+
+	var drawMonth = (function() {
+		var parts = document.getElementById('parts');
+		var table = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+		return function(context, originX, originY, year, month) {
+			var beginDate = new Date(year, month, 1);
+			var endDate = new Date(year, month + 1, 0);
+
+			var monthEnd = endDate.getDate();
+			var dayOfWeek = beginDate.getDay();
+
+			var srcX = (CELL_WIDTH * 7) * dayOfWeek;
+			var srcY = (CELL_HEIGHT * 6) * (monthEnd - 28);
+
+			var rowcolBegin = getColRow(year, month, 1);
+			var rowcolEnd = getColRow(year, month, monthEnd);
+
+			context.save();
+
+			context.globalAlpha = 0.75;
+			context.drawImage(parts, srcX, srcY, CELL_WIDTH * 7, CELL_HEIGHT * 6, originX, originY, CELL_WIDTH * 7, CELL_HEIGHT * 6);
+
+			context.restore();
+		};
+	})();
+
+	function drawMonthBar(context, originX, originY) {
+		context.save();
+
+		context.fillStyle = '#c0c0c0';
+		context.fillRect(originX, originY, CELL_WIDTH * 7, CELL_HEIGHT - 1);
+		context.fillStyle = '#a0a0a0';
+		context.fillRect(originX, originY + CELL_HEIGHT - 1, CELL_WIDTH * 7, 1);
+
+		for (var i = 0; i < 7; i++) {
+			crawChar3x3(context, originX + CELL_WIDTH * i + 1, originY, '#808080', ['S', 'M', 'T', 'W', 'T', 'F', 'S'][i]);
+		}
+
+		context.restore();
+	}
+
+	function drawCell(context, originX, originY) {
+		context.save();
+
+		context.fillStyle = '#ffffff';
+		context.fillRect(originX, originY, CELL_WIDTH - 1, 1);
+		context.fillRect(originX, originY, 1, CELL_HEIGHT - 1);
+
+		context.fillStyle = '#000000';
+		context.fillRect(originX + 1, originY + CELL_HEIGHT - 1, CELL_WIDTH - 1, 1);
+		context.fillRect(originX + CELL_WIDTH - 1, originY + 1, 1, CELL_HEIGHT - 1);
+
+		context.fillStyle = '#a0a0a0';
+		context.fillRect(originX + CELL_WIDTH - 1, originY, 1, 1);
+		context.fillRect(originX, originY + CELL_HEIGHT - 1, 1, 1);
+
+		context.restore();
+	}
+
+	var crawChar3x3 = (function() {
+		var table = {
+			'S': 0x0326,
+			'M': 0x0577,
+			'T': 0x0227,
+			'W': 0x0775,
+			'F': 0x0137
+		};
+
+		return function(context, originX, originY, style, ch) {
+			context.save();
+			context.fillStyle = style;
+			for (var y = 0; y < 3; y++) {
+				for (var x = 0; x < 3; x++) {
+					if (table[ch] & (1 << (x + y * 4))) {
+						context.fillRect(originX + x, originY + y, 1, 1);
+					}
+				}
+			}
+			context.restore();
+		};
+	})();
+
+	var drawText5x5 = (function() {
+		var table = {
+			' ': 0x00000000,
+			'0': 0x0e4d564e,
+			'1': 0x0e104184,
+			'2': 0x1f08c44e,
+			'3': 0x0e44c44e,
+			'4': 0x087c928c,
+			'5': 0x0f40f05f,
+			'6': 0x0e44f04e,
+			'7': 0x0410845f,
+			'8': 0x0e44e44e,
+			'9': 0x0e41e44e,
+			'A': 0x1145f44e,
+			'B': 0x0f44f44f,
+			'C': 0x0e44144e,
+			'D': 0x0f45144f,
+			'E': 0x1f04f05f,
+			'F': 0x0104f05f,
+			'G': 0x1e45d05e,
+			'H': 0x1145f451,
+			'I': 0x0e10410e,
+			'J': 0x0624821c,
+			'K': 0x19143159,
+			'L': 0x1f041041,
+			'M': 0x115556d1,
+			'N': 0x116554d1,
+			'O': 0x0e45144e,
+			'P': 0x0104f44f,
+			'Q': 0x1625544e,
+			'R': 0x1124f44f,
+			'S': 0x0f40e05e,
+			'T': 0x0410411f,
+			'U': 0x0e451451,
+			'V': 0x04291451,
+			'W': 0x0a555551,
+			'X': 0x11284291,
+			'Y': 0x04104291,
+			'Z': 0x1f08421f,
+			'(': 0x18104118,
+			')': 0x03104103
+		};
+
+		return function(context, originX, originY, style, str, scale) {
+			context.save();
+			context.fillStyle = style;
+			for (var i = 0; i < str.length; i++) {
+				var ch = str.charAt(i);
+				for (var y = 0; y < 5; y++) {
+					for (var x = 0; x < 5; x++) {
+						if (table[ch] & (1 << (x + y * 6))) {
+							context.fillRect(originX + scale * x, originY + scale * y, scale, scale);
+						}
+					}
+				}
+				originX += scale * 6;
+			}
+			context.restore();
+		};
+	})();
+
+	function drawInitialScreen() {
+		var canvas = document.getElementById('lifetime');
+		if (!canvas || !canvas.getContext) {
+			return;
+		}
+		var context = canvas.getContext('2d');
+
+		context.fillStyle = '#ffffff';
+		context.globalAlpha = 1;
+		context.fillRect(0, 0, 1000, 800);
+
+		var scale = 8;
+		var right = Math.floor($('#birth_date').offset().left - $('#lifetime').offset().left);
+		var messages = ['PLEASE', 'ENTER', 'YOUR', 'BIRTH DATE'];
+		for (var i = 0; i < messages.length; i++) {
+			drawText5x5(context, right - 6 * scale * messages[i].length - 8.5, 6 * 1.25 * scale * i + 8.5, '#c0c0c0', messages[i], scale);
+		}
+	}
+
+	function updateLifetime() {
+		var canvas = document.getElementById('lifetime');
+		if (!canvas || !canvas.getContext) {
+			return;
+		}
+		var context = canvas.getContext('2d');
+
+		var birthDate = $('#birth_date').datepicker('getDate');
+		var period = $('#period').val();
+
+		var width = $('#lifetime').attr('width');
+		var height = $('#lifetime').attr('height');
+
+		if (!birthDate) {
+			return;
+		}
+
+		$('#save_as').prop('disabled', '');
+
+		context.globalAlpha = 1;
+		var grad = context.createLinearGradient(0, 0, 0, height);
+		grad.addColorStop(0.0,  'rgb(255, 192, 192)');
+		grad.addColorStop(0.25, 'rgb(255, 255, 192)');
+		grad.addColorStop(0.5,  'rgb(192, 255, 192)');
+		grad.addColorStop(0.75, 'rgb(192, 255, 255)');
+		grad.addColorStop(1.0,  'rgb(192, 192, 255)');
+		context.fillStyle = grad;
+		context.fillRect(0, 0, width, height);
+
+		for (var age = 0; age < period; age++) {
+			var year = birthDate.getFullYear() + age;
+			var col = age % 10;
+			var row = Math.floor(age / 10);
+			drawYear(context, YEAR_WIDTH * col, YEAR_HEIGHT * row, year, '' + year + '(AGE' + age + ')');
+		}
+
+		for (var m = 0; m < 12; m++) {
+			var monthX = MONTH_WIDTH * (m % 3);
+			var monthY = MONTH_HEIGHT * Math.floor(m / 3) + 6;
+
+			if (m > birthDate.getMonth()) {
+				break;
+			} else if (m < birthDate.getMonth()) {
+				context.globalAlpha = 0.75;
+				context.fillStyle = '#e0e0e0';
+				context.fillRect(monthX, monthY, MONTH_WIDTH, MONTH_HEIGHT);
+			} else {
+				context.globalAlpha = 0.75;
+				for (var d = 1; d < birthDate.getDate(); d++) {
+					var rcDay = getColRow(birthDate.getFullYear(), m, d);
+					context.fillStyle = '#e0e0e0';
+					context.fillRect(monthX + CELL_WIDTH * rcDay.col, monthY + CELL_HEIGHT * rcDay.row, CELL_WIDTH, CELL_HEIGHT);
+				}
+			}
+		}
+
+		var now = new Date();
+		var age = now.getFullYear() - birthDate.getFullYear();
+
+		context.fillStyle = '#000000';
+		context.globalAlpha = 0.5;
+
+		var currentX = 0;
+		var currentY = 0;
+
+		var rowYear = Math.floor(age / 10);
+		context.fillRect(currentX, currentY, YEAR_WIDTH * 10, YEAR_HEIGHT * rowYear);
+		currentY += YEAR_HEIGHT * rowYear;
+
+		var colYear = age % 10;
+		context.fillRect(currentX, currentY, YEAR_WIDTH * colYear, YEAR_HEIGHT);
+		currentX += YEAR_WIDTH * colYear;
+
+		var rowMonth = Math.floor(now.getMonth() / 3);
+		var barHeight = 6 * ((rowMonth > 0) ? 1 : 0);
+		context.fillRect(currentX, currentY, YEAR_WIDTH, MONTH_HEIGHT * rowMonth + barHeight);
+		currentY += MONTH_HEIGHT * rowMonth + barHeight;
+
+		var colMonth = now.getMonth() % 3;
+		context.fillRect(currentX, currentY, MONTH_WIDTH * colMonth, MONTH_HEIGHT);
+		currentX += MONTH_WIDTH * colMonth;
+
+		var rcDay = getColRow(now.getFullYear(), now.getMonth(), now.getDate());
+		context.fillRect(currentX, currentY, MONTH_WIDTH, CELL_HEIGHT * rcDay.row);
+		currentY += CELL_HEIGHT * rcDay.row;
+
+		context.fillRect(currentX, currentY, CELL_WIDTH * rcDay.col, CELL_HEIGHT);
+		currentX += CELL_WIDTH * rcDay.col;
+
+		context.strokeStyle = '#0080ff';
+		for (var i = 0; i < 4; i++) {
+			context.globalAlpha = (4 - i) / 4;
+			context.strokeRect(currentX - i, currentY - i, CELL_WIDTH + i * 2, CELL_HEIGHT + i * 2);
+		}
+
+		var days = Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+		if ($('#message').val() === 'ON' && days > 0) {
+			var scale = 6;
+			var str = 'THE ' + getOrdinal(days) + ' DAY';
+			var strHeight = 6 * scale;
+			var strWidth = strHeight * str.length;
+
+			var messageX = Math.floor((width - strWidth) / 2);
+			if (currentX < messageX + YEAR_WIDTH) {
+				messageX = MONTH_WIDTH;
+			} else if (messageX + strWidth - YEAR_WIDTH < currentX) {
+				messageX = width - strWidth - MONTH_WIDTH;
+			}
+			var messageY = YEAR_HEIGHT * (rowYear + ((currentY > YEAR_HEIGHT) ? -1 : +1)) + Math.floor((YEAR_HEIGHT - strHeight) / 2);
+			var style = (currentY > YEAR_HEIGHT) ? '#ffffff' : '#000000';
+
+			context.globalAlpha = 0.5;
+			drawText5x5(context, messageX, messageY, style, str, scale);
+
+			context.fillStyle = style;
+			context.globalAlpha = 0.75;
+			context.fillRect(messageX, messageY + strHeight, strWidth - scale, 1);
+			if (currentY > YEAR_HEIGHT) {
+				context.fillRect(currentX + Math.floor(CELL_WIDTH / 2), messageY + strHeight, 1, currentY - (messageY + strHeight) - CELL_HEIGHT);
+			} else {
+				context.fillRect(currentX + Math.floor(CELL_WIDTH / 2), currentY + CELL_HEIGHT * 2, 1, messageY - (currentY + CELL_HEIGHT * 2));
+			}
+		}
+	}
+
+	function getColRow(year, month, day) {
+		var beginDate = new Date(year, month, 1);
+		var endDate = new Date(year, month + 1, 0);
+
+		var monthEnd = endDate.getDate();
+		var dayOfWeek = beginDate.getDay();
+
+		var topRow = (monthEnd - (7 - dayOfWeek) - 28 > 0) ? 0 : 1;
+
+		return {col: (dayOfWeek + day - 1) % 7, row: topRow + Math.floor((dayOfWeek + day - 1) / 7)};
+	}
+
+	function getOrdinal(num) {
+		var ones = num % 10;
+		var tens = Math.floor(num / 10) % 10;
+
+		var str = num;
+		if (tens === 1) {
+			str += 'TH';
+		} else if (ones === 1) {
+			str += 'ST';
+		} else if (ones === 2) {
+			str += 'ND';
+		} else if (ones === 3) {
+			str += 'RD';
+		} else {
+			str += 'TH';
+		}
+
+		return str;
+	}
+
+	$('div.container').width($('#lifetime').width());
+	$('#birth_date').datepicker({
+		changeMonth: true,
+		changeYear: true,
+		dateFormat: 'yy-mm-dd',
+		yearRange: '1900:2020'
+	});
+	$('#form_settings *').change(function() {$('#form_settings').submit();});
+	$('#save_as').click(function() {
+		$('#dialog').dialog({
+			width: 400,
+			modal: true
+		});
+	});
+	$('#form_save').submit(function() {
+		var canvas = document.getElementById('lifetime');
+		if (!canvas || !canvas.toDataURL) {
+			return false;
+		}
+		$('#file_body').val(canvas.toDataURL());
+		$('#dialog').dialog('close');
+	});
+
+	if (document.location.search.length > 1) {
+		var params = document.location.search.substring(1).split('&');
+		for (var i = 0; i < params.length; i++) {
+			var pair = params[i].split('=');
+			$('#form_settings [name="' + pair[0] + '"]').val(pair[1]);
+		}
+	}
+
+	if (!document.createElement('canvas').getContext) {
+		$('body').append('<div class="ui-state-highlight ui-corner-all" style="margin-bottom: 1em"><p><span class="ui-icon ui-icon-alert" style="float: left; margin: 0 0.5em;"></span> This application doesn\'t support your browser.</p></div>');
+	} else {
+		$('#lifetime').attr('width', YEAR_WIDTH * 10);
+		$('#lifetime').attr('height', YEAR_HEIGHT * Math.ceil($('#period').val() / 10));
+		if ($('#birth_date').val()) {
+			$('#birth_date').datepicker('setDate', $('#birth_date').val());
+		} else {
+			$('#birth_date').datepicker('show');
+			drawInitialScreen();
+		}
+
+		makeCalenders();
+		updateLifetime();
+	}
+});
+</script>
+<title>Lifetime Calendar</title>
+</head>
+<body class="ui-widget">
+<div class="heading ui-widget-header"><div class="container">
+	<h1 style="display: inline;">Lifetime Calendar</h1>
+	<form id="form_settings" method="get" action="" style="float: right;">
+		<label for="birth_date">Birth date:</label><input type="text" id="birth_date" name="birthdate" size="12">
+		<label for="period">Period:</label><select id="period" name="period">
+			<option>50</option>
+			<option>60</option>
+			<option>70</option>
+			<option selected="selected">80</option>
+			<option>90</option>
+			<option>100</option>
+		</select>
+		<label for="message">Message:</label><select id="message" name="message">
+			<option selected="selected">ON</option>
+			<option>OFF</option>
+		</select>
+		<input type="button" id="save_as" value="Save As ..." disabled="disabled">
+	</form>
+</div></div>
+<hr>
+<div class="ui-helper-hidden-accessible">
+	<canvas id="parts" width="245" height="96"></canvas>
+</div>
+<canvas id="lifetime" width="1090" height="856"></canvas>
+<div id="dialog" title="Save As ..." style="display: none;">
+	<form id="form_save" method="post" action="/data2file/download">
+		<label for="file_name">File name:</label><input type="text" id="file_name" name="filename" size="20" value="lifetime.png"> <input type="submit" value="Save">
+		<input type="hidden" id="file_body" name="body" value="">
+	</form>
+</div>
+</body>
+</html>

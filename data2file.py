@@ -16,7 +16,9 @@ class MainPage(webapp.RequestHandler):
 
 class DownloadHandler(webapp.RequestHandler):
 	def post(self):
-		m = re.match('data:([^ ;]+)[;]?((?:charset=)?[^ ;]*)[;]?((?:base64)?[^ ,]*),([^ ]+)', self.request.get('body').encode('utf8', 'replace'))
+		body = self.request.get('body').encode('utf8')
+		head = body[:256]
+		m = re.match('data:([^ ;]+)[;]?((?:charset=)?[^ ;]*)[;]?((?:base64)?[^ ,]*),([^ ]+)', head)
 		if m == None:
 			return
 
@@ -31,9 +33,9 @@ class DownloadHandler(webapp.RequestHandler):
 			charset = 'US-ASCII'
 		is_base64 = (m.group(2) == 'base64') | (m.group(3) == 'base64')
 		if is_base64:
-			data = base64.standard_b64decode(m.group(4))
+			data = base64.standard_b64decode(body[m.start(4):])
 		else:
-			data = urllib.unquote(m.group(4)).encode('raw_unicode_escape').decode(charset)
+			data = urllib.unquote(body[m.start(4):]).encode('raw_unicode_escape').decode(charset)
 
 		self.response.headers['Content-Type'] = mimetype
 		self.response.headers['Content-Disposition'] = 'attachment; filename="' + urllib.quote(self.request.get('filename', default_value = 'data.bin').encode('utf-8')) + '"'
